@@ -1,0 +1,1394 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>モンサクン</title>
+<!-- 自動生成：GAS/tools/build_gas.js が demo_bn_support/public/monsakun.css から作る。手で編集しない。 -->
+<style>
+/*
+ * 実機（Android タブレット版）モンサクンの作問画面の再現。
+ * 参照した画面写真:
+ *   papers/11_論文ドラフト/stage1_基礎観測/06_戦略の違い/_執筆過程/extracted/img_senryaku/*.png
+ *   papers/11_論文ドラフト/stage1_基礎観測/06_戦略の違い/_執筆過程/extracted/img_docx/image1.png
+ *
+ * 構成: 左に「レベル／もんだい」タブ → 作問条件の白枠 → 黒板（3 行の解答欄）→
+ * チョーク受け → 操作ボタン →「もどる」の丸、右に選択肢カードの縦一列。
+ * カードはドラッグで黒板へ運ぶ。抜けた位置は空いたまま残る（実機と同じ）。
+ */
+
+.msk-stage {
+  --paper: #fbf7dc;
+  --side: #ded1a8;
+  --board-frame: #c6a87a;
+  --board: #5d7c5c;
+  --card-border: #2e75ce;
+  --tab-lv: #a9542a;
+  --tab-asg: #e9b44c;
+  --btn-off: #d9cfa8;
+  --btn-on: #efc85e;
+  --back: #c9a24b;
+
+  position: relative;
+  /* 実機はタブレットの固定解像度なので、設計幅を固定して表示幅に合わせて拡縮する
+     （拡縮は app.js の fitStage が行う）。 */
+  width: 1000px;
+  transform-origin: top left;
+  background: var(--paper);
+  border: 1px solid #c9bd93;
+  border-radius: 6px;
+  padding: 26px 30px 34px;
+  display: grid;
+  grid-template-columns: 520px 1fr;
+  gap: 26px;
+  font-family: "Hiragino Maru Gothic ProN", "M PLUS Rounded 1c", "Yu Gothic",
+    "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+/* 左右のうすい帯（実機の背景） */
+.msk-stage::before, .msk-stage::after {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 22px;
+  background: var(--side);
+}
+.msk-stage::before { left: 0; }
+.msk-stage::after { right: 0; }
+
+.msk-left, .msk-right { position: relative; z-index: 1; }
+.msk-left { padding-bottom: 78px; }  /* 左下の「もどる」ボタンぶんの余白 */
+
+/* --- レベル / もんだい タブ ------------------------------------------- */
+.msk-tabs { display: flex; gap: 6px; margin-left: 4px; }
+.msk-tab {
+  border: 3px solid #000; border-bottom: none;
+  padding: 3px 18px; font-size: 15px; font-weight: 700; letter-spacing: .04em;
+}
+.msk-tab.lv { background: var(--tab-lv); color: #fff; }
+.msk-tab.asg { background: var(--tab-asg); color: #241a08; }
+
+/* --- 作問条件 ---------------------------------------------------------- */
+.msk-req {
+  background: #fff; border: 4px solid #000; padding: 10px 14px 12px;
+  font-size: 21px; line-height: 1.4; font-weight: 600; color: #111;
+  white-space: pre-line;
+  min-height: 108px;
+}
+
+/* --- 黒板 -------------------------------------------------------------- */
+.msk-board {
+  background: var(--board-frame); border-radius: 14px;
+  padding: 10px 12px; margin-top: -2px;
+}
+.msk-board-inner {
+  background: var(--board); border-radius: 10px; padding: 10px 12px 10px 8px;
+  display: grid; gap: 8px;
+}
+.msk-row { display: grid; grid-template-columns: 62px 1fr; align-items: center; }
+/* 行番号。丸は CSS の枠で描くので、中身は普通の数字にする（丸囲み数字 ①②③ を入れると丸が二重になる） */
+.msk-num {
+  width: 46px; height: 46px; margin: 0 auto; border: 3px solid #fff; border-radius: 50%;
+  color: #fff; font-size: 26px; font-weight: 700; line-height: 40px; text-align: center;
+  box-sizing: border-box; font-variant-numeric: tabular-nums;
+}
+.msk-slot {
+  min-height: 62px; border-radius: 12px; background: #000;
+  display: flex; align-items: center; justify-content: center;
+  transition: box-shadow .12s;
+}
+.msk-slot.over { box-shadow: 0 0 0 4px #ffe680; }
+
+/* チョーク受け */
+.msk-tray {
+  height: 12px; background: var(--board-frame); border-radius: 0 0 8px 8px;
+  margin: 0 6px; position: relative;
+}
+.msk-tray i { position: absolute; top: 3px; height: 6px; border-radius: 2px; display: block; }
+.msk-tray .eraser { left: 18px; width: 78px; background: #4c6b3f; }
+.msk-tray .knob { left: 74px; width: 12px; top: 0; height: 9px; background: #8a8a8a; }
+.msk-tray .chalk-w { left: 128px; width: 62px; background: #fff; }
+.msk-tray .chalk-p { left: 200px; width: 56px; background: #c88ac0; }
+
+/* --- 操作ボタン -------------------------------------------------------- */
+.msk-action {
+  display: block; width: 400px; margin: 20px 0 0 64px; padding: 12px 0;
+  font-size: 24px; font-weight: 700; text-align: center; border-radius: 0;
+  background: var(--btn-off); border: 2px solid #8a8a8a; color: #4a4a4a;
+  cursor: default; font-family: inherit;
+}
+.msk-action.ready {
+  background: var(--btn-on); border: 3px solid #000; color: #171717; cursor: pointer;
+}
+.msk-action.ready:hover { filter: brightness(1.06); }
+
+/* --- もどる ------------------------------------------------------------ */
+/* 左下の「もどる」。押せる形に見えるよう、影つきの角丸ボタンにして矢印を添える。
+   以前の大きな丸は作問画面の外にはみ出して 4 分の 1 が切れ、文字も端に寄っていた。 */
+.msk-back {
+  position: absolute; left: 4px; bottom: 6px;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 22px 9px 14px; border-radius: 999px;
+  background: var(--back); border: 3px solid #000; box-shadow: 0 4px 0 #000;
+  color: #171717; font-size: 20px; font-weight: 700; letter-spacing: .06em;
+  cursor: pointer; z-index: 2; user-select: none;
+  transition: transform .06s, box-shadow .06s, filter .12s;
+}
+.msk-back::before {
+  content: ""; width: 0; height: 0;
+  border-top: 9px solid transparent; border-bottom: 9px solid transparent;
+  border-right: 13px solid #171717;
+}
+.msk-back:hover { filter: brightness(1.06); }
+.msk-back:active { transform: translateY(3px); box-shadow: 0 1px 0 #000; }
+
+/* --- 選択肢カード ------------------------------------------------------ */
+.msk-fit { position: relative; overflow: hidden; }
+
+.msk-tray-list { display: grid; gap: 10px; padding-top: 122px; }
+.msk-pos { min-height: 62px; border-radius: 12px; }
+.msk-pos.over { box-shadow: 0 0 0 4px #ffe680; }
+
+.msk-card {
+  background: #fff; border: 3px solid var(--card-border); border-radius: 12px;
+  min-height: 62px; padding: 8px 12px; font-size: 15px; line-height: 1.4;
+  white-space: pre-line;
+  color: #1a1a1a; text-align: center;
+  display: flex; align-items: center; justify-content: center;
+  cursor: grab; box-sizing: border-box;
+}
+.msk-card:active { cursor: grabbing; }
+.msk-card.dragging { opacity: .28; }
+.msk-slot .msk-card { width: 100%; }
+
+/* ドラッグ中に指（カーソル）についてくる複製。
+   body 直下に置くので .msk-stage の色の変数は届かない（var() を使うと枠の指定ごと無効になり枠が消える）。
+   色は直接書く。傾けない（取り残されたときに「カードが斜めになった」ように見えるため）。 */
+.msk-ghost {
+  position: fixed; z-index: 999; pointer-events: none; box-sizing: border-box;
+  box-shadow: 0 6px 18px rgba(0,0,0,.28);
+  background: #fff; border: 3px solid #2e75ce; border-radius: 12px; color: #1a1a1a;
+  padding: 8px 12px; font-size: 15px; line-height: 1.4; text-align: center; white-space: pre-line;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "Hiragino Maru Gothic ProN", "M PLUS Rounded 1c", "Yu Gothic", sans-serif;
+}
+
+/* --- 答え合わせの結果表示 ---------------------------------------------- */
+.msk-verdict {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(20,16,4,.28);
+}
+.msk-verdict > div {
+  background: #fff; border: 5px solid #000; padding: 22px 46px;
+  font-size: 40px; font-weight: 700; text-align: center; border-radius: 4px;
+}
+.msk-verdict .mark { font-size: 62px; display: block; line-height: 1; margin-bottom: 6px; }
+.msk-verdict.ok .mark { color: #d8452f; }
+.msk-verdict.ng .mark { color: #2f5fd8; }
+
+
+/* --- 支援メッセージ（実機には無い。デモで足した吹き出し） -------------- */
+.msk-hint {
+  margin: 12px 0 0 64px; width: 400px;
+  background: #fff; border: 3px solid #000; border-radius: 4px;
+  padding: 9px 12px 10px; font-size: 14px; line-height: 1.5; color: #1a1a1a;
+  position: relative;
+}
+.msk-hint::before {
+  content: "モンサクン"; position: absolute; top: -12px; left: 10px;
+  background: var(--tab-asg); border: 2px solid #000; border-radius: 3px;
+  font-size: 10px; padding: 0 6px; font-weight: 700;
+}
+.msk-hint.alert { background: #fff3f1; }
+
+</style>
+
+<style>
+/* GAS 版で足した画面（ログイン・レベル選択・終了・送信状態）。作問画面そのものは MonsakunStyle.html。 */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: #ded1a8; color: #1a1a1a;
+  font-family: "Hiragino Maru Gothic ProN", "M PLUS Rounded 1c", "Yu Gothic", Meiryo, sans-serif;
+  overflow: hidden;
+}
+[hidden] { display: none !important; }
+/* 画面より中身が高いとき（スマホの横など）はスクロールさせる。safe center で上が切れないようにする */
+.screen { width: 100%; height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.screen.center { display: flex; align-items: safe center; justify-content: center; padding: 16px; }
+/* align-items: flex-start … 既定の stretch だと、作問画面の外枠が画面の高さに固定され、
+   はみ出した部分が切り取られてスクロールもできなくなる（スマホ横で「こたえあわせ」が押せなかった） */
+#play { display: flex; justify-content: center; align-items: flex-start; padding: 8px; }
+#play .msk-fit { width: 100%; max-width: 1600px; }
+
+.home-box {
+  background: #fbf7dc; border: 4px solid #000; border-radius: 6px;
+  padding: 28px 36px; text-align: center; max-width: 560px; width: 100%;
+}
+.home-box h1 { margin: 0 0 4px; font-size: 40px; letter-spacing: .08em; }
+.big { font-size: 30px; font-weight: 700; margin: 8px 0; }
+.small { font-size: 15px; color: #444; margin: 6px 0 0; }
+
+.levels { display: grid; gap: 14px; margin: 24px 0 18px; }
+.levels button {
+  font: inherit; font-size: 26px; font-weight: 700; padding: 14px 10px;
+  background: #efc85e; border: 3px solid #000; cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.levels button:hover { filter: brightness(1.06); }
+.levels button small { font-size: 15px; font-weight: 600; }
+.levels button.done { background: #f6e3a6; }
+
+.logout {
+  font: inherit; font-size: 18px; padding: 8px 26px; background: #fff;
+  border: 2px solid #555; cursor: pointer; margin-top: 4px;
+}
+.gbtn { display: flex; justify-content: center; margin: 24px 0 8px; min-height: 44px; }
+.loginmsg { min-height: 1.5em; color: #8a3b12; }
+.who { font-size: 12px; color: #6b6b6b; margin: 16px 0 0; word-break: break-all; }
+
+/* タッチ操作：画面は縦スクロールだけ許し、カードの上ではスクロールもズームも止める。
+   touch-action は指を置いた要素で決まるので、カードから始めたドラッグは途中でスクロールに奪われない
+   （奪われると pointercancel になり、ドラッグが打ち切られる）。 */
+#play, #play .msk-stage { touch-action: pan-y; }
+#play .msk-card { touch-action: none; }
+
+/* --- スマホ用の配置（App.html の fitStage が .fluid を付ける） ------------------------------
+   実機の画面を縮めずに縦に並べ替える：レベル／もんだい → 作問条件 → 黒板 → こたえあわせ → カード。
+   「もどる」は右上に置く。文字の大きさは縮めない（カード 15px、作問条件 17px）。 */
+.msk-stage.fluid {
+  width: 100%; max-width: 640px; margin: 0 auto; padding: 12px 12px 16px;
+  grid-template-columns: 1fr; gap: 12px; border-radius: 6px;
+}
+.msk-stage.fluid::before, .msk-stage.fluid::after { display: none; }
+.msk-stage.fluid .msk-left { padding-bottom: 0; }
+/* タブの行：左にレベル／もんだい、右端に「もどる」。タブは下端をそろえて作問条件の枠に接したままにする */
+.msk-stage.fluid .msk-tabs { align-items: flex-end; margin-left: 0; }
+.msk-stage.fluid .msk-tab { font-size: 14px; padding: 3px 10px; white-space: nowrap; }
+.msk-stage.fluid .msk-req { font-size: 17px; min-height: 0; padding: 8px 12px 10px; border-width: 3px; }
+.msk-stage.fluid .msk-board { padding: 8px; border-radius: 12px; }
+.msk-stage.fluid .msk-board-inner { padding: 8px 8px 8px 4px; gap: 6px; }
+.msk-stage.fluid .msk-row { grid-template-columns: 44px 1fr; }
+.msk-stage.fluid .msk-num { width: 36px; height: 36px; font-size: 20px; line-height: 30px; border-width: 3px; }
+.msk-stage.fluid .msk-slot, .msk-stage.fluid .msk-pos, .msk-stage.fluid .msk-card { min-height: 54px; }
+.msk-stage.fluid .msk-card { font-size: 15px; padding: 6px 10px; }
+.msk-stage.fluid .msk-action { width: 100%; margin: 12px 0 0; font-size: 21px; padding: 10px 0; }
+.msk-stage.fluid .msk-hint { width: 100%; margin: 12px 0 0; }
+.msk-stage.fluid .msk-tray-list { padding-top: 0; gap: 8px; }
+.msk-stage.fluid .msk-back {
+  position: static; margin: 0 0 8px auto; flex: none;
+  font-size: 16px; padding: 6px 16px 6px 12px; box-shadow: 0 3px 0 #000;
+}
+.msk-stage.fluid .msk-back::before { border-top-width: 7px; border-bottom-width: 7px; border-right-width: 10px; }
+/* 結果の表示は画面（スクロール位置）の真ん中に出す。作問画面の真ん中だと画面外になることがある */
+.msk-stage.fluid .msk-verdict { position: fixed; }
+.msk-stage.fluid .msk-verdict > div { font-size: 30px; padding: 18px 28px; }
+.msk-stage.fluid .msk-verdict .mark { font-size: 48px; }
+
+/* タブレット縦など幅に余裕がある縦長の画面：文字とカードを大きくする */
+@media (min-width: 700px) and (min-height: 520px) {
+  .msk-stage.fluid { max-width: 760px; padding: 18px 20px 24px; }
+  .msk-stage.fluid .msk-tab { font-size: 16px; padding: 4px 16px; }
+  .msk-stage.fluid .msk-req { font-size: 22px; padding: 10px 14px 12px; }
+  .msk-stage.fluid .msk-row { grid-template-columns: 56px 1fr; }
+  .msk-stage.fluid .msk-num { width: 44px; height: 44px; font-size: 24px; line-height: 38px; }
+  .msk-stage.fluid .msk-slot, .msk-stage.fluid .msk-pos, .msk-stage.fluid .msk-card { min-height: 64px; }
+  .msk-stage.fluid .msk-card { font-size: 18px; }
+  .msk-stage.fluid .msk-action { font-size: 24px; padding: 12px 0; }
+  .msk-stage.fluid .msk-back { font-size: 18px; padding: 8px 20px 8px 14px; }
+}
+
+/* スマホの横（低くて広い）：黒板と選択肢を左右 2 列にする */
+@media (min-width: 600px) and (max-height: 519px) {
+  .msk-stage.fluid { max-width: 980px; grid-template-columns: 1.1fr 1fr; }
+  .msk-stage.fluid .msk-tray-list { padding-top: 34px; }
+}
+
+/* 狭い画面ではレベル選択などの枠を詰める */
+@media (max-width: 480px) {
+  .home-box { padding: 20px 16px; }
+  .home-box h1 { font-size: 32px; }
+  .levels button { font-size: 22px; }
+}
+
+/* ドラッグ中のゴーストは body 直下に置くので、.msk-stage で定義した色の変数が届かない
+   （そのままだと青い枠が消える）。色をここで直接指定し、傾けない。 */
+.msk-ghost { border: 3px solid #2e75ce; transform: none; color: #1a1a1a; box-sizing: border-box; }
+
+/* 正解のあとの「つぎへ」 */
+.msk-verdict button {
+  display: block; margin: 16px auto 0; font: inherit; font-size: 24px; font-weight: 700;
+  padding: 10px 28px; background: #efc85e; border: 3px solid #000; cursor: pointer;
+}
+
+/* 送信状態（教員の確認用。児童の操作は邪魔しない位置に小さく出す） */
+.sendstate {
+  position: fixed; right: 6px; bottom: 4px; font-size: 11px; color: #555;
+  background: rgba(255,255,255,.75); padding: 1px 6px; border-radius: 3px; z-index: 1000;
+}
+.sendstate.fail { color: #b3261e; font-weight: 700; }
+</style>
+
+</head>
+<body>
+
+<div id="loading" class="screen center">
+  <div class="home-box"><p class="big">よみこみちゅう…</p></div>
+</div>
+
+<!-- ログイン（Google アカウント） -->
+<div id="login" class="screen center" hidden>
+  <div class="home-box">
+    <h1>モンサクン</h1>
+    <p class="small">じぶんの Google アカウントで ログインしてね</p>
+    <div id="gbtn" class="gbtn"></div>
+    <p id="loginmsg" class="small loginmsg"></p>
+  </div>
+</div>
+
+<div id="error" class="screen center" hidden>
+  <div class="home-box">
+    <p class="big">つかえません</p>
+    <p id="errormsg" class="small"></p>
+  </div>
+</div>
+
+<!-- レベルをえらぶ画面 -->
+<div id="home" class="screen center" hidden>
+  <div class="home-box">
+    <h1>モンサクン</h1>
+    <p class="small">おはなしづくりの もんだい</p>
+    <div id="levels" class="levels"></div>
+    <button id="logout" class="logout">おわる</button>
+    <p id="who" class="who"></p>
+  </div>
+</div>
+
+<!-- おわったあと -->
+<div id="bye" class="screen center" hidden>
+  <div class="home-box">
+    <p class="big">おつかれさま！</p>
+    <p class="small" id="byemsg">このまま とじて だいじょうぶです。</p>
+    <button id="again" class="logout">もういちど はじめる</button>
+  </div>
+</div>
+
+<!-- 作問画面（demo_bn_support の学習者画面と同じ構成。支援パネルは無い） -->
+<div id="play" class="screen" hidden>
+  <div class="msk-fit" id="fit"><div class="msk-stage" id="stage">
+    <div class="msk-left">
+      <div class="msk-tabs">
+        <span class="msk-tab lv" id="tabLv">レベル:1</span>
+        <span class="msk-tab asg" id="tabAsg">もんだい:1</span>
+      </div>
+      <div class="msk-req" id="req"></div>
+      <div class="msk-board">
+        <div class="msk-board-inner" id="board"></div>
+      </div>
+      <div class="msk-tray">
+        <i class="eraser"></i><i class="knob"></i><i class="chalk-w"></i><i class="chalk-p"></i>
+      </div>
+      <button class="msk-action" id="action">カードをならべよう</button>
+      <div class="msk-hint" id="learnermsg" hidden></div>
+      <div class="msk-back" id="back">もどる</div>
+    </div>
+    <div class="msk-right">
+      <div class="msk-tray-list" id="cardlist"></div>
+    </div>
+  </div></div>
+</div>
+
+<div id="sendstate" class="sendstate" hidden></div>
+
+<script>
+var MSK_CONFIG = {"endpoint":"https://script.google.com/macros/s/AKfycbzsHs94piwace25VFsCvFAM5hkzCAqvWPUX6IFAEb3sv2-WZgCu-FRErx0XXE7LxDF7/exec","clientId":"616831545005-lv59s1dh24tifmh1us28ai7klmpsfs5i.apps.googleusercontent.com"};
+</script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+/*
+ * GAS（ログ受信用ウェブアプリ）との通信。
+ *
+ * Content-Type を text/plain にして「単純なリクエスト」にする。application/json にすると
+ * ブラウザが事前確認（OPTIONS）を送り、GAS はそれに答えられないので失敗する。
+ * GAS の応答は script.googleusercontent.com への転送を経て返り、こちらはそれをそのまま読む。
+ */
+var API = (function () {
+  function post(body) {
+    return fetch(MSK_CONFIG.endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(body),
+    }).then(function (r) {
+      if (!r.ok) throw new Error('通信エラー（HTTP ' + r.status + '）');
+      return r.json();
+    }).then(function (j) {
+      if (!j.ok) {
+        var err = new Error(j.error || 'エラー');
+        err.code = j.code;
+        throw err;
+      }
+      return j;
+    });
+  }
+  return {
+    login: function (idToken) { return post({ action: 'login', idToken: idToken }); },
+    resume: function (session) { return post({ action: 'resume', session: session }); },
+    log: function (session, events) { return post({ action: 'log', session: session, events: events }); },
+  };
+})();
+</script>
+
+<!-- 自動生成：GAS/tools/build_gas.js が demo_bn_support/src/constraints.js から作る。手で編集しない。 -->
+<script>
+var MSK = (function () {
+  var module = { exports: {} };
+'use strict';
+/**
+ * モンサクン 5 制約（C.S / N.S / SS.S / ST.S / O.S）の判定エンジン。
+ *
+ * 制約の呼称は data/00_元データ/README.md と CLAUDE.md の canonical 定義に従う。
+ *
+ *   SS.S 文構造制約       : 存在文 2 枚 ＋ 関係文 1 枚という構成が成立しているか
+ *   ST.S 物語制約         : 関係文の種類が課題の指定する物語と対応しているか（SS.S に依存）
+ *   O.S  オブジェクト制約 : 参照対象が規則に従うか（合併・比較 = 別物 / 増加・減少 = 同物）
+ *   N.S  数理制約         : 出題が指定した数字を実際に使っているか
+ *                          （Lv1 だけは緩く，置いた 3 枚の数が算術的に整合していれば充足）
+ *   C.S  数式制約         : 物語が表す数量関係が作問条件の式と一致するか（N.S に依存）
+ *
+ * 判定規則は「正解カードなら満たす」だけでなく、**実践で使われた実システムが記録した
+ * フラグを再現する** ことを目標に決めてある。各規則の細部（O.S を SS.S と独立に評価する、
+ * 文順序の要求を ST.S ではなく C.S に置く、Lv1 の N.S だけ緩い、など）は
+ * 寺西小 2020 実践の CHECK イベント 63,603 件と突き合わせて決定した。
+ * 一致率は `node tools/validate.js` で再現できる。
+ */
+
+const STORY_LABEL = {
+  combine: 'あわせて（合併）',
+  increase: 'ふえると（増加）',
+  decrease: 'のこりは（減少）',
+  compare: 'ちがいは（比較）',
+};
+
+/** 物語タイプが導く数量関係の形（加算形か減算形か） */
+const STORY_FORM = { combine: '+', increase: '+', decrease: '-', compare: '-' };
+
+const FLAGS = ['SS.S', 'ST.S', 'O.S', 'N.S', 'C.S'];
+
+const DEFAULT_OPTS = {
+  // N.S の規則。'hybrid' が実ログと最もよく一致する（Lv1 のみ緩い）。
+  //   'strict'  … 作問条件で指定された数値をそのまま使っているか
+  //   'lenient' … 未知数 1 つを含む算術的に成立する数の組か
+  //   'hybrid'  … Lv1 は lenient、Lv2・Lv3 は strict
+  nsRule: 'hybrid',
+};
+
+// ---------------------------------------------------------------------------
+// 補助
+// ---------------------------------------------------------------------------
+
+/** カードが言及するオブジェクトの一覧 */
+function cardObjects(c) {
+  if (!c) return [];
+  if (c.kind === 'exist') return [c.obj];
+  if (c.rel === 'combine') return c.objs.slice();
+  if (c.rel === 'compare') return [c.subj, c.ref];
+  return [c.obj]; // increase / decrease
+}
+
+function sameMultiset(a, b) {
+  if (a.length !== b.length) return false;
+  const x = a.slice().sort();
+  const y = b.slice().sort();
+  return x.every((v, i) => v === y[i]);
+}
+
+/**
+ * 置かれた 3 枚から物語の数量関係を復元する。
+ * 返り値 { form, x, y, z, rel } は「x form y = z」を意味する。
+ *   合併 : 部分 + 部分 = 全体
+ *   増加 : 変化前 + 増加量 = 変化後
+ *   減少 : 変化前 - 減少量 = 変化後
+ *   比較 : 多い方 - 少ない方 = 差
+ * 増加・減少では、存在文のうちスロット順で先にある方を「変化前」とみなす。
+ * 復元できない場合は null。
+ */
+function storyEquation(cards, slots) {
+  const placed = slots.map((id) => (id ? cards[id - 1] : null));
+  if (placed.some((c) => !c)) return null;
+  const rels = placed.filter((c) => c.kind === 'rel');
+  const eOrder = placed.filter((c) => c.kind === 'exist');
+  if (rels.length !== 1 || eOrder.length !== 2) return null;
+  const rel = rels[0];
+
+  if (rel.rel === 'combine') {
+    return { form: '+', x: eOrder[0].num, y: eOrder[1].num, z: rel.num, rel: 'combine',
+             roles: { part1: eOrder[0], part2: eOrder[1], total: rel } };
+  }
+  if (rel.rel === 'increase') {
+    return { form: '+', x: eOrder[0].num, y: rel.num, z: eOrder[1].num, rel: 'increase',
+             roles: { before: eOrder[0], change: rel, after: eOrder[1] } };
+  }
+  if (rel.rel === 'decrease') {
+    return { form: '-', x: eOrder[0].num, y: rel.num, z: eOrder[1].num, rel: 'decrease',
+             roles: { before: eOrder[0], change: rel, after: eOrder[1] } };
+  }
+  if (rel.rel === 'compare') {
+    // 「A は B より D おおい」→ A が多い方。「A は B より D すくない」→ B が多い方。
+    const bigObj = rel.dir === 'more' ? rel.subj : rel.ref;
+    const smallObj = rel.dir === 'more' ? rel.ref : rel.subj;
+    const big = eOrder.find((c) => c.obj === bigObj);
+    const small = eOrder.find((c) => c.obj === smallObj);
+    if (!big || !small || big === small) return null; // 参照先の存在文が置かれていない
+    return { form: '-', x: big.num, y: small.num, z: rel.num, rel: 'compare',
+             roles: { larger: big, smaller: small, diff: rel } };
+  }
+  return null;
+}
+
+/**
+ * 3 つの数量からなる加法的関係の正準形。
+ *
+ * 「x + y = z」も「x - y = z」も、結局は「全体 = 部分 + 部分」という 1 つの関係である。
+ * 差の書き方は一意ではない（8-2=6 と 8-6=2 は同じ関係）ので、
+ *   加算形 x + y = z → { whole: z, parts: [x, y] }
+ *   減算形 x - y = z → { whole: x, parts: [y, z] }
+ * に畳んでから比較する。これにより「2+7=?」と「2+?=7」は別物として区別しつつ、
+ * 「?-6=2」と「?-2=6」は同じ関係として同一視できる。
+ *
+ * Why: 原データの作問条件では比較（ちがいは）の課題で差の書き方が揺れている
+ * （Lv2 番号10 は「6-?=4」＝全体-部分、Lv2 番号12 は「?-6=2」＝全体-差）。
+ * 表層の式で照合すると Lv2 番号12・Lv3 番号4 の正解が誤判定される。
+ */
+function canonical(form, x, y, z) {
+  return form === '+'
+    ? { whole: z, parts: [x, y].sort() }
+    : { whole: x, parts: [y, z].sort() };
+}
+
+function sameRelation(r1, r2) {
+  if (!r1 || !r2) return false;
+  return r1.whole === r2.whole && sameMultiset(r1.parts, r2.parts);
+}
+
+/** 作問条件を正準形にする */
+function requirementRelation(req) {
+  if (req.mode === 'relation') return canonical(req.op, req.a, req.b, req.r);
+  // 計算式条件: 未知数 ? を「a op b」で求める、という指定
+  return req.op === '+'
+    ? { whole: '?', parts: [req.a, req.b].sort() }
+    : { whole: req.a, parts: [req.b, '?'].sort() };
+}
+
+/** 作問条件が要求する数値の組 */
+function requiredNumbers(req) {
+  return req.mode === 'relation' ? [req.a, req.b, req.r] : [req.a, req.b, '?'];
+}
+
+/** 未知数を 1 つ含むか、あるいは 3 数が「全体 = 部分 + 部分」を満たすか */
+function arithmeticallyWellFormed(nums) {
+  const q = nums.filter((n) => n === '?').length;
+  if (q === 1) return true;           // 未知数がひとつ → 値を定めれば必ず成立する
+  if (q > 1) return false;            // 未知数が 2 つ以上 → 数式が定まらない
+  const d = nums.map(Number);
+  return d[0] === d[1] + d[2] || d[1] === d[0] + d[2] || d[2] === d[0] + d[1];
+}
+
+// ---------------------------------------------------------------------------
+// 本体
+// ---------------------------------------------------------------------------
+
+/**
+ * @param {object} task    tasks.json の 1 課題
+ * @param {number[]} slots 長さ 3。0 = 空、1..N = カード番号
+ * @returns {{complete, flags, allSatisfied, reasons, equation}}
+ */
+function evaluate(task, slots, opts) {
+  const o = Object.assign({}, DEFAULT_OPTS, opts || {});
+  const cards = task.cards;
+  const req = task.requirement;
+  const flags = { 'SS.S': 0, 'ST.S': 0, 'O.S': 0, 'N.S': 0, 'C.S': 0 };
+  const reasons = {};
+  const complete = slots.every((s) => s > 0);
+  if (!complete) {
+    reasons.incomplete = 'カードが 3 枚そろっていない';
+    return { complete: false, flags, allSatisfied: false, reasons, equation: null };
+  }
+
+  const placed = slots.map((id) => cards[id - 1]);
+  const rels = placed.filter((c) => c.kind === 'rel');
+  const exists = placed.filter((c) => c.kind === 'exist');
+  const rel = rels.length === 1 ? rels[0] : null;
+  const relSlot = placed.findIndex((c) => c.kind === 'rel');
+
+  // --- SS.S 文構造制約 -----------------------------------------------------
+  if (exists.length === 2 && rels.length === 1) {
+    flags['SS.S'] = 1;
+  } else {
+    reasons['SS.S'] = `存在文 ${exists.length} 枚・関係文 ${rels.length} 枚になっている`
+      + '（お話は「存在文 2 枚 ＋ 関係文 1 枚」で作る）';
+  }
+
+  // --- ST.S 物語制約（SS.S に依存） ---------------------------------------
+  if (flags['SS.S']) {
+    if (rel.rel === task.story) flags['ST.S'] = 1;
+    else reasons['ST.S'] = `作ったお話は「${STORY_LABEL[rel.rel]}」だが、`
+      + `課題が求めているのは「${STORY_LABEL[task.story]}」`;
+  } else {
+    reasons['ST.S'] = '文構造が成立していないので、お話の種類を判定できない';
+  }
+
+  // --- O.S オブジェクト制約 ------------------------------------------------
+  // 実システムは SS.S とは独立に評価している（関係文の種類が「同物型」か「別物型」かで
+  // 規則が決まり、関係文が無いときは 3 枚が同じものを指すかで判定する）。
+  const eObjs = exists.map((c) => c.obj);
+  if (rels.length === 1 && exists.length === 2) {
+    const rObjs = Array.from(new Set(cardObjects(rel)));
+    if (rel.rel === 'combine' || rel.rel === 'compare') {
+      if (eObjs[0] === eObjs[1]) {
+        reasons['O.S'] = `「${STORY_LABEL[rel.rel]}」のお話では、2 つの存在文は別のものでなければならない`;
+      } else if (!sameMultiset(rObjs.slice().sort(), eObjs.slice().sort())) {
+        reasons['O.S'] = '関係文が指しているものと、存在文に出てくるものが食い違っている';
+      } else {
+        flags['O.S'] = 1;
+      }
+    } else {
+      if (eObjs[0] === eObjs[1] && rObjs.every((x) => x === eObjs[0])) flags['O.S'] = 1;
+      else reasons['O.S'] = `「${STORY_LABEL[rel.rel]}」のお話では、3 枚とも同じものの話でなければならない`;
+    }
+  } else if (rels.length === 0) {
+    const all = placed.map((c) => c.obj);
+    if (all.every((x) => x === all[0])) flags['O.S'] = 1;
+    else reasons['O.S'] = '出てくるものがそろっていない';
+  } else {
+    reasons['O.S'] = '関係文が 2 枚以上あり、何と何を比べているのか定まらない';
+  }
+
+  // --- N.S 数理制約 --------------------------------------------------------
+  const used = placed.map((c) => c.num);
+  const need = requiredNumbers(req);
+  const strict = sameMultiset(used, need);
+  const lenient = arithmeticallyWellFormed(used);
+  const useLenient = o.nsRule === 'lenient' || (o.nsRule === 'hybrid' && task.lv === 1);
+  if (useLenient ? lenient : strict) {
+    flags['N.S'] = 1;
+  } else {
+    reasons['N.S'] = useLenient
+      ? `使った数 {${used.join(', ')}} では算数の式が作れない`
+      : `使った数は {${used.join(', ')}}。作問条件が求めているのは {${need.join(', ')}}`;
+  }
+
+  // --- C.S 数式制約 --------------------------------------------------------
+  // 3 条件の連言:
+  //   (1) お話の種類が導く演算（たし算／ひき算）が課題のそれと一致する
+  //   (2) 文順序制約のある課題（増加・減少）では関係文が中央のスロットにある
+  //   (3) お話が表す数量関係（正準形）が作問条件のそれと一致する
+  const eq = storyEquation(cards, slots);
+  const posOk = task.order !== 1 || relSlot === 1;
+  if (!eq) {
+    reasons['C.S'] = 'お話から数量の関係を読み取れない';
+  } else if (eq.form !== STORY_FORM[task.story]) {
+    reasons['C.S'] = `課題は${STORY_FORM[task.story] === '+' ? 'たし算' : 'ひき算'}`
+      + `のお話を求めているが、作ったお話は${eq.form === '+' ? 'たし算' : 'ひき算'}になっている`;
+  } else if (!posOk) {
+    reasons['C.S'] = '「変化前 → 変化 → 変化後」の順に並べる必要がある（関係文はまん中）';
+  } else {
+    const got = canonical(eq.form, eq.x, eq.y, eq.z);
+    const want = requirementRelation(req);
+    if (sameRelation(got, want)) {
+      flags['C.S'] = 1;
+    } else {
+      const shown = req.mode === 'relation'
+        ? `「${req.a} ${req.op} ${req.b} = ${req.r}」`
+        : `「${req.a} ${req.op} ${req.b}」で求められる関係`;
+      reasons['C.S'] = `作ったお話が表す式は「${eq.x} ${eq.form} ${eq.y} = ${eq.z}」`
+        + `（全体 ${got.whole}、部分 ${got.parts.join(' と ')}）。作問条件は ${shown}`;
+    }
+  }
+
+  const allSatisfied = FLAGS.every((f) => flags[f] === 1);
+  return { complete: true, flags, allSatisfied, reasons, equation: eq };
+}
+
+module.exports = {
+  evaluate, FLAGS, STORY_LABEL, STORY_FORM, storyEquation, cardObjects,
+  canonical, requirementRelation, requiredNumbers, DEFAULT_OPTS,
+};
+
+  return module.exports;
+})();
+</script>
+
+<!-- 自動生成：GAS/tools/build_gas.js が demo_bn_support/data/tasks.json から作る。手で編集しない。 -->
+<script>
+var MSK_TASKS = {"source":"data\\01_問題データ\\01 寺西小学校実践用作問課題.xlsx","tasks":[{"lv":1,"asg":1,"lvAsg":101,"requirement":{"mode":"relation","op":"+","a":"2","b":"7","r":"?","story":"combine","text":"「2+7=?」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「2+7=?」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"forward","expression":"story","tutorial":true,"cards":[{"kind":"exist","obj":"しろいいぬ","num":"2","pred":"います","text":"しろいいぬが2ひきいます","display":"しろいいぬ が 2ひき います","id":1},{"kind":"exist","obj":"くろいいぬ","num":"7","pred":"います","text":"くろいいぬが7ひきいます","display":"くろいいぬ が 7ひき います","id":2},{"kind":"rel","rel":"combine","objs":["しろいいぬ","くろいいぬ"],"num":"?","text":"しろいいぬとくろいいぬはあわせて?ひきいます","display":"しろいいぬ と くろいいぬ は あわせて ? ひきいます","id":3}],"note":""},{"lv":1,"asg":2,"lvAsg":102,"requirement":{"mode":"relation","op":"+","a":"4","b":"3","r":"?","story":"combine","text":"「4+3=?」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「4+3=?」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"赤い花","num":"4","pred":"さいています","text":"赤い花が4本さいています","display":"赤い花 が 4本 さいています","id":1},{"kind":"exist","obj":"きいろい花","num":"3","pred":"さいています","text":"きいろい花が3本さいています","display":"きいろい花 が 3本 さいています","id":2},{"kind":"rel","rel":"combine","objs":["赤い花","きいろい花"],"num":"?","text":"赤い花ときいろい花がぜんぶで?本さいています","display":"赤い花 と きいろい花 が\nぜんぶで?本 さいています","id":3},{"kind":"exist","obj":"赤い花","num":"7","pred":"さいています","text":"赤い花が7本さいています","display":"赤い花 が 7本 さいています","id":4},{"kind":"rel","rel":"combine","objs":["赤い花","きいろい花"],"num":"4","text":"赤い花ときいろい花がぜんぶで4本さいています","display":"赤い花 と きいろい花 が\nぜんぶで4本 さいています","id":5}],"note":""},{"lv":1,"asg":3,"lvAsg":103,"requirement":{"mode":"relation","op":"+","a":"3","b":"5","r":"?","story":"combine","text":"「3+5=?」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「3+5=?」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"きいろいふうせん","num":"3","pred":"あります","text":"きいろいふうせんが3こあります","display":"きいろいふうせん が 3こあります","id":1},{"kind":"exist","obj":"青いふうせん","num":"5","pred":"あります","text":"青いふうせんが5こあります","display":"青いふうせん が 5こあります","id":2},{"kind":"rel","rel":"combine","objs":["きいろいふうせん","青いふうせん"],"num":"?","text":"きいろいふうせんと青いふうせんがあわせて?こあります","display":"きいろいふうせん と 青いふうせんが\nあわせて ?こ あります","id":3},{"kind":"exist","obj":"青いふうせん","num":"?","pred":"あります","text":"青いふうせんが?こあります","display":"青いふうせん が ?こ あります","id":4},{"kind":"rel","rel":"combine","objs":["きいろいふうせん","青いふうせん"],"num":"5","text":"きいろいふうせんと青いふうせんがあわせて5こあります","display":"きいろいふうせん と 青いふうせん が\nあわせて 5こ あります","id":5},{"kind":"exist","obj":"赤いふうせん","num":"3","pred":"あります","text":"赤いふうせんが3こあります","display":"赤いふうせん が 3こ あります","id":6}],"note":""},{"lv":1,"asg":4,"lvAsg":104,"requirement":{"mode":"relation","op":"+","a":"4","b":"5","r":"?","story":"combine","text":"「4+5=?」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「4+5=?」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"男の子","num":"4","pred":"います","text":"男の子が4人います","display":"男の子 が 4人 います","id":1},{"kind":"exist","obj":"女の子","num":"5","pred":"います","text":"女の子が5人います","display":"女の子 が 5人 います","id":2},{"kind":"rel","rel":"combine","objs":["男の子","女の子"],"num":"?","text":"男の子と女の子はみんなで?人です","display":"男の子 と 女の子 は\nみんなで ?人 です","id":3},{"kind":"exist","obj":"男の子","num":"?","pred":"います","text":"男の子が?人います","display":"男の子 が ?人 います","id":4},{"kind":"rel","rel":"compare","subj":"女の子","ref":"男の子","num":"?","dir":"more","text":"女の子は男の子より?人おおいです","display":"女の子は男の子より\n?人おおいです","id":5}],"note":""},{"lv":1,"asg":5,"lvAsg":105,"requirement":{"mode":"relation","op":"+","a":"1","b":"5","r":"?","story":"increase","text":"「1+5=?」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「1+5=?」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"forward","expression":"story","tutorial":true,"cards":[{"kind":"exist","obj":"すずめ","num":"1","pred":"います","text":"すずめが1わいます","display":"すずめ が 1わ います","id":1},{"kind":"rel","rel":"increase","obj":"すずめ","num":"5","verb":"ふえました","text":"すずめが5わふえました","display":"すずめ が 5わ ふえました","id":2},{"kind":"exist","obj":"すずめ","num":"?","pred":"います","text":"すずめが?わいます","display":"すずめ が ?わ います","id":3}],"note":""},{"lv":1,"asg":6,"lvAsg":106,"requirement":{"mode":"relation","op":"+","a":"2","b":"3","r":"?","story":"increase","text":"「2+3=?」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「2+3=?」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"くるま","num":"2","pred":"あります","text":"くるまが2だいあります","display":"くるま が 2だい あります","id":1},{"kind":"rel","rel":"increase","obj":"くるま","num":"3","verb":"ふえました","text":"くるまが3だいふえました","display":"くるま が 3だい ふえました","id":2},{"kind":"exist","obj":"くるま","num":"?","pred":"あります","text":"くるまが?だいあります","display":"くるま が ?だい あります","id":3},{"kind":"exist","obj":"くるま","num":"3","pred":"あります","text":"くるまが3だいあります","display":"くるま が 3だい あります","id":4},{"kind":"rel","rel":"increase","obj":"くるま","num":"5","verb":"ふえました","text":"くるまが5だいふえました","display":"くるまが5だいふえました","id":5}],"note":""},{"lv":1,"asg":7,"lvAsg":107,"requirement":{"mode":"relation","op":"+","a":"6","b":"1","r":"?","story":"increase","text":"「6+1=?」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「6+1=?」でけいさんできる「ふえるといくつ」のおはなしをつくろう"},"story":"increase","order":1,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"チューリップ","num":"6","pred":"さいています","text":"チューリップが6本さいています","display":"チューリップ が 6 本 さいています","id":1},{"kind":"rel","rel":"increase","obj":"チューリップ","num":"1","verb":"さきました","text":"チューリップが1本さきました","display":"チューリップ が 1 本 さきました","id":2},{"kind":"exist","obj":"チューリップ","num":"?","pred":"さいています","text":"チューリップが?本さいています","display":"チューリップ が ?本 さいています","id":3},{"kind":"exist","obj":"チューリップ","num":"1","pred":"さいています","text":"チューリップが1本さいています","display":"チューリップ が 1 本 さいています","id":4},{"kind":"rel","rel":"increase","obj":"チューリップ","num":"?","verb":"さきました","text":"チューリップが?本さきました","display":"チューリップ が ?本 さきました","id":5},{"kind":"exist","obj":"バラ","num":"6","pred":"さいています","text":"バラが6本さいています","display":"バラが 6 本 さいています","id":6}],"note":"述語の使い方が不適切かも？"},{"lv":1,"asg":8,"lvAsg":108,"requirement":{"mode":"relation","op":"+","a":"3","b":"6","r":"?","story":"increase","text":"「3+6=?」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「3+6=?」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"カード","num":"3","pred":"もっています","text":"カードを3まいもっています","display":"カード を 3まい もっています","id":1},{"kind":"rel","rel":"increase","obj":"カード","num":"6","verb":"もらいました","text":"カードを6まいもらいました","display":"カード を 6まい もらいました","id":2},{"kind":"exist","obj":"カード","num":"?","pred":"もっています","text":"カードを?まいもっています","display":"カード を ?まい もっています","id":3},{"kind":"exist","obj":"カード","num":"6","pred":"もっています","text":"カードを6まいもっています","display":"カード を 6まい もっています","id":4},{"kind":"rel","rel":"decrease","obj":"カード","num":"6","verb":"あげました","text":"カードを6まいあげました","display":"カード を 6まい あげました","id":5}],"note":""},{"lv":1,"asg":9,"lvAsg":109,"requirement":{"mode":"relation","op":"-","a":"5","b":"3","r":"?","story":"decrease","text":"「5-3=?」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「5-3=?」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"forward","expression":"story","tutorial":true,"cards":[{"kind":"exist","obj":"さくらんぼ","num":"5","pred":"あります","text":"さくらんぼが5こあります","display":"さくらんぼ が 5こ あります","id":1},{"kind":"rel","rel":"decrease","obj":"さくらんぼ","num":"3","verb":"たべました","text":"さくらんぼを3こたべました","display":"さくらんぼ を 3こ たべました","id":2},{"kind":"exist","obj":"さくらんぼ","num":"?","pred":"あります","text":"さくらんぼが?こあります","display":"さくらんぼ が ?こ あります","id":3}],"note":""},{"lv":1,"asg":10,"lvAsg":110,"requirement":{"mode":"relation","op":"-","a":"9","b":"8","r":"?","story":"decrease","text":"「9-8=?」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「9-8=?」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"たまご","num":"9","pred":"あります","text":"たまごが9こあります","display":"たまご が 9こ あります","id":1},{"kind":"rel","rel":"decrease","obj":"たまご","num":"8","verb":"つかいました","text":"たまごを8こつかいました","display":"たまご を 8こ つかいました","id":2},{"kind":"exist","obj":"たまご","num":"?","pred":"あります","text":"たまごが?こあります","display":"たまご が ?こ あります","id":3},{"kind":"exist","obj":"たまご","num":"8","pred":"あります","text":"たまごが8こあります","display":"たまご が 8こ あります","id":4},{"kind":"rel","rel":"decrease","obj":"たまご","num":"9","verb":"つかいました","text":"たまごを9こつかいました","display":"たまご を 9こ つかいました","id":5}],"note":""},{"lv":1,"asg":11,"lvAsg":111,"requirement":{"mode":"relation","op":"-","a":"7","b":"2","r":"?","story":"decrease","text":"「7-2=?」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「7ー2=?」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"おかし","num":"7","pred":"あります","text":"おかしが7こあります","display":"おかし が 7こ あります","id":1},{"kind":"rel","rel":"decrease","obj":"おかし","num":"2","verb":"あげました","text":"おかしを2こあげました","display":"おかし を 2こ あげました","id":2},{"kind":"exist","obj":"おかし","num":"?","pred":"あります","text":"おかしが?こあります","display":"おかし が ?こ あります","id":3},{"kind":"exist","obj":"おかし","num":"2","pred":"あります","text":"おかしが2こあります","display":"おかし が 2こ あります","id":4},{"kind":"rel","rel":"decrease","obj":"おかし","num":"7","verb":"あげました","text":"おかしを7こあげました","display":"おかし を 7こ あげました","id":5},{"kind":"exist","obj":"りんご","num":"7","pred":"あります","text":"りんごが7こあります","display":"りんご が 7こ あります","id":6}],"note":""},{"lv":1,"asg":12,"lvAsg":112,"requirement":{"mode":"relation","op":"-","a":"6","b":"4","r":"?","story":"decrease","text":"「6-4=?」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「6-4=?」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"花のはち","num":"6","pred":"あります","text":"花のはちが6こあります","display":"花のはち が 6こ あります","id":1},{"kind":"rel","rel":"decrease","obj":"花のはち","num":"4","verb":"もってかえりました","text":"花のはちを4こもってかえりました","display":"花のはち を 4こ もってかえりました","id":2},{"kind":"exist","obj":"花のはち","num":"?","pred":"あります","text":"花のはちが?こあります","display":"花のはち が ?こ あります","id":3},{"kind":"exist","obj":"花のはち","num":"4","pred":"あります","text":"花のはちが4こあります","display":"花のはち が 4こ あります","id":4},{"kind":"rel","rel":"increase","obj":"花のはち","num":"?","verb":"もってきました","text":"花のはちを?こもってきました","display":"花のはち を ?こ もってきました","id":5}],"note":""},{"lv":1,"asg":13,"lvAsg":113,"requirement":{"mode":"relation","op":"-","a":"6","b":"2","r":"?","story":"compare","text":"「6-2=?」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「6-2=?」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"forward","expression":"story","tutorial":true,"cards":[{"kind":"exist","obj":"すずめ","num":"6","pred":"います","text":"すずめが6わいます","display":"すずめ が 6わ います","id":1},{"kind":"exist","obj":"からす","num":"2","pred":"います","text":"からすが2わいます","display":"からす が 2わ います","id":2},{"kind":"rel","rel":"compare","subj":"すずめ","ref":"からす","num":"?","dir":"more","text":"すすめはからすより?わおおいです","display":"すすめ は からす より ?わ おおいです","id":3}],"note":""},{"lv":1,"asg":14,"lvAsg":114,"requirement":{"mode":"relation","op":"-","a":"9","b":"7","r":"?","story":"compare","text":"「9-7=?」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「9-7=?」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"女の子","num":"9","pred":"います","text":"女の子が9人います","display":"女の子 が 9 人 います","id":1},{"kind":"exist","obj":"男の子","num":"7","pred":"います","text":"男の子が7人います","display":"男の子 が 7 人います","id":2},{"kind":"rel","rel":"compare","subj":"女の子","ref":"男の子","num":"?","dir":"more","text":"女の子は男の子より?人おおいです","display":"女の子 は 男の子 より\n?人 おおいです","id":3},{"kind":"exist","obj":"男の子","num":"?","pred":"います","text":"男の子が?人います","display":"男の子が?人います","id":4},{"kind":"rel","rel":"compare","subj":"男の子","ref":"女の子","num":"2","dir":"more","text":"男の子は女の子より2人おおいです","display":"男の子 は 女の子 より\n2人 おおいです","id":5}],"note":""},{"lv":1,"asg":15,"lvAsg":115,"requirement":{"mode":"relation","op":"-","a":"7","b":"6","r":"?","story":"compare","text":"「7-6=?」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「7-6=?」でけいさんできる「ちがいはいくつ」のおはなしをつくろう"},"story":"compare","order":0,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"おさら","num":"7","pred":"あります","text":"おさらが7まいあります","display":"おさら が 7まい あります","id":1},{"kind":"exist","obj":"ケーキ","num":"6","pred":"あります","text":"ケーキが6つあります","display":"ケーキ が 6つ あります","id":2},{"kind":"rel","rel":"compare","subj":"ケーキ","ref":"おさら","num":"?","dir":"less","text":"ケーキはおさらより?つすくないです","display":"ケーキ は おさら より?つ すくないです","id":3},{"kind":"exist","obj":"おさら","num":"?","pred":"あります","text":"おさらが?つあります","display":"おさら が ?つ あります","id":4},{"kind":"rel","rel":"compare","subj":"おさら","ref":"ケーキ","num":"?","dir":"less","text":"おさらはケーキより?つすくないです","display":"おさら は ケーキ より?つ すくないです","id":5},{"kind":"exist","obj":"フォーク","num":"7","pred":"あります","text":"フォークが7つあります","display":"フォーク が 7つ あります","id":6}],"note":"おさら，ケーキの順に引っ張られた"},{"lv":1,"asg":16,"lvAsg":116,"requirement":{"mode":"relation","op":"-","a":"8","b":"2","r":"?","story":"compare","text":"「8-2=?」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「8-2=?」でけいさんできる「ちがいはいくつ」のおはなしをつくろう"},"story":"compare","order":0,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"ふうとう","num":"8","pred":"あります","text":"ふうとうが8まいあります","display":"ふうとう が 8まい あります","id":1},{"kind":"exist","obj":"カード","num":"2","pred":"あります","text":"カードが2まいあります","display":"カード が 2まい あります","id":2},{"kind":"rel","rel":"compare","subj":"ふうとう","ref":"カード","num":"?","dir":"more","text":"ふうとうはカードより?まいおおいです","display":"ふうとう は カードより?まい おおいです","id":3},{"kind":"exist","obj":"ふうとう","num":"?","pred":"あります","text":"ふうとうが?まいあります","display":"ふうとう が ?まい あります","id":4},{"kind":"rel","rel":"decrease","obj":"ふうとう","num":"2","verb":"あげました","text":"ふうとうを2まいあげました","display":"ふうとう を2まいあげました","id":5}],"note":"残りはいくつ？と誤解"},{"lv":2,"asg":1,"lvAsg":201,"requirement":{"mode":"relation","op":"+","a":"4","b":"?","r":"9","story":"combine","text":"「4+?=9」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「4+?=9」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"男の子","num":"4","pred":"います","text":"男の子が4人います","display":"男の子 が 4 人 います","id":1},{"kind":"exist","obj":"女の子","num":"?","pred":"います","text":"女の子が?人います","display":"女の子 が ? 人 います","id":2},{"kind":"rel","rel":"combine","objs":["男の子","女の子"],"num":"9","text":"男の子と女の子があわせて9人います","display":"男の子 と 女の子 が\nあわせて 9 人 います","id":3},{"kind":"exist","obj":"女の子","num":"9","pred":"います","text":"女の子が9人います","display":"女の子 が 9 人 います","id":4},{"kind":"rel","rel":"combine","objs":["男の子","女の子"],"num":"?","text":"男の子と女の子があわせて?人います","display":"男の子 と 女の子 が\nあわせて ? 人 います","id":5}],"note":""},{"lv":2,"asg":2,"lvAsg":202,"requirement":{"mode":"relation","op":"+","a":"2","b":"?","r":"7","story":"combine","text":"「2+?=7」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「2+?=7」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"とらねこ","num":"2","pred":"います","text":"とらねこが2ひきいます","display":"とらねこ が 2 ひき います","id":1},{"kind":"exist","obj":"しろねこ","num":"?","pred":"います","text":"しろねこが?ひきいます","display":"しろねこ が ? ひき います","id":2},{"kind":"rel","rel":"combine","objs":["とらねこ","しろねこ"],"num":"7","text":"とらねことしろねこがあわせて7ひきいます","display":"とらねこ と しろねこ が\nあわせて 7 ひき います","id":3},{"kind":"exist","obj":"とらねこ","num":"7","pred":"います","text":"とらねこが7ひきいます","display":"とらねこ が 7 ひき います","id":4},{"kind":"rel","rel":"combine","objs":["とらねこ","しろねこ"],"num":"?","text":"とらねことしろねこがあわせて?ひきいます","display":"とらねこ と しろねこ が\nあわせて ? ひき います","id":5},{"kind":"exist","obj":"くろねこ","num":"2","pred":"います","text":"くろねこが2ひきいます","display":"くろねこ が 2 ひき います","id":6}],"note":""},{"lv":2,"asg":3,"lvAsg":203,"requirement":{"mode":"relation","op":"+","a":"3","b":"?","r":"7","story":"combine","text":"「3+?=7」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「3+?=7」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"あんぱん","num":"3","pred":"あります","text":"あんぱんが3こあります","display":"あんぱん が 3 こ あります","id":1},{"kind":"exist","obj":"メロンパン","num":"?","pred":"あります","text":"メロンパンが?こあります","display":"メロンパン が ? こ あります","id":2},{"kind":"rel","rel":"combine","objs":["あんぱん","メロンパン"],"num":"7","text":"あんぱんとメロンパンがあわせて7こあります","display":"あんぱん と メロンパン が\nあわせて 7 こ あります","id":3},{"kind":"exist","obj":"メロンパン","num":"7","pred":"あります","text":"メロンパンが7こあります","display":"メロンパン が 7 こ あります","id":4},{"kind":"rel","rel":"compare","subj":"あんぱん","ref":"メロンパン","num":"?","dir":"more","text":"あんぱんはメロンパンより?こおおいです","display":"あんぱん は メロンパン より ? こ おおいです","id":5}],"note":""},{"lv":2,"asg":4,"lvAsg":204,"requirement":{"mode":"relation","op":"+","a":"7","b":"?","r":"9","story":"increase","text":"「7+?=9」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「7+?=9」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"子ども","num":"7","pred":"あそんでいます","text":"子どもが7人あそんでいます","display":"子ども が 7 人 あそんでいます","id":1},{"kind":"rel","rel":"increase","obj":"子ども","num":"?","verb":"きました","text":"子どもが?人きました","display":"子ども が ? 人 きました","id":2},{"kind":"exist","obj":"子ども","num":"9","pred":"あそんでいます","text":"子どもが9人あそんでいます","display":"子ども が 9 人 あそんでいます","id":3},{"kind":"exist","obj":"子ども","num":"?","pred":"あそんでいます","text":"子どもが?人あそんでいます","display":"子ども が ? 人 あそんでいます","id":4},{"kind":"rel","rel":"increase","obj":"子ども","num":"9","verb":"きました","text":"子どもが9人きました","display":"子ども が 9 人 きました","id":5}],"note":""},{"lv":2,"asg":5,"lvAsg":205,"requirement":{"mode":"relation","op":"+","a":"?","b":"4","r":"5","story":"increase","text":"「?+4=5」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「?+4=5」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"シール","num":"?","pred":"もっています","text":"シールを?まいもっています","display":"シール を ? まい もっています","id":1},{"kind":"rel","rel":"increase","obj":"シール","num":"4","verb":"もらいました","text":"シールを4まいもらいました","display":"シール を 4 まい もらいました","id":2},{"kind":"exist","obj":"シール","num":"5","pred":"もっています","text":"シールを5まいもっています","display":"シール を 5 まい もっています","id":3},{"kind":"exist","obj":"シール","num":"4","pred":"もっています","text":"シールを4まいもっています","display":"シール を 4 まい もっています","id":4},{"kind":"rel","rel":"increase","obj":"シール","num":"5","verb":"もらいました","text":"シールを5まいもらいました","display":"シール を 5 まい もらいました","id":5},{"kind":"exist","obj":"プリント","num":"?","pred":"もっています","text":"プリントを?まいもっています","display":"プリントを ? まい もっています","id":6}],"note":""},{"lv":2,"asg":6,"lvAsg":206,"requirement":{"mode":"relation","op":"+","a":"?","b":"5","r":"8","story":"increase","text":"「?+5=8」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「?+5=8」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"ふね","num":"?","pred":"とまっています","text":"ふねが?そうとまっています","display":"ふね が ? そう とまっています","id":1},{"kind":"rel","rel":"increase","obj":"ふね","num":"5","verb":"もどってきました","text":"ふねが5そうもどってきました","display":"ふね が 5 そう もどってきました","id":2},{"kind":"exist","obj":"ふね","num":"8","pred":"とまっています","text":"ふねが8そうとまっています","display":"ふね が 8 そう とまっています","id":3},{"kind":"exist","obj":"ふね","num":"5","pred":"とまっています","text":"ふねが5そうとまっています","display":"ふね が 5 そう とまっています","id":4},{"kind":"rel","rel":"decrease","obj":"ふね","num":"5","verb":"でていきました","text":"ふねが5そうでていきました","display":"ふね が 5 そう でていきました","id":5}],"note":""},{"lv":2,"asg":7,"lvAsg":207,"requirement":{"mode":"relation","op":"-","a":"?","b":"5","r":"1","story":"decrease","text":"「?-5=1」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「?ー5=1」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"あめ","num":"?","pred":"もっています","text":"あめを?こもっています","display":"あめ を ? こ もっています","id":1},{"kind":"rel","rel":"decrease","obj":"あめ","num":"5","verb":"たべました","text":"あめを5こたべました","display":"あめ を 5 こ たべました","id":2},{"kind":"exist","obj":"あめ","num":"1","pred":"もっています","text":"あめを1こもっています","display":"あめ を 1 こ もっています","id":3},{"kind":"exist","obj":"あめ","num":"5","pred":"もっています","text":"あめを5こもっています","display":"あめ を 5 こ もっています","id":4},{"kind":"rel","rel":"decrease","obj":"あめ","num":"?","verb":"たべました","text":"あめを?こたべました","display":"あめ を ? こ たべました","id":5}],"note":""},{"lv":2,"asg":8,"lvAsg":208,"requirement":{"mode":"relation","op":"-","a":"?","b":"3","r":"6","story":"decrease","text":"「?-3=6」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「?ー3=6」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"子ども","num":"?","pred":"あそんでいます","text":"子どもが?人あそんでいます","display":"子ども が ? 人 あそんでいます","id":1},{"kind":"rel","rel":"decrease","obj":"子ども","num":"3","verb":"かえりました","text":"子どもが3人かえりました","display":"子ども が 3 人 かえりました","id":2},{"kind":"exist","obj":"子ども","num":"6","pred":"あそんでいます","text":"子どもが6人あそんでいます","display":"子ども が 6 人 あそんでいます","id":3},{"kind":"exist","obj":"子ども","num":"3","pred":"あそんでいます","text":"子どもが3人あそんでいます","display":"子ども が 3 人 あそんでいます","id":4},{"kind":"rel","rel":"decrease","obj":"子ども","num":"?","verb":"かえりました","text":"子どもが?人かえりました","display":"子ども が ? 人 かえりました","id":5},{"kind":"exist","obj":"男の子","num":"6","pred":"あそんでいます","text":"男の子が6人あそんでいます","display":"男の子 が 6 人 あそんでいます","id":6}],"note":""},{"lv":2,"asg":9,"lvAsg":209,"requirement":{"mode":"relation","op":"-","a":"9","b":"?","r":"8","story":"decrease","text":"「9-?=8」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「9ー?=8」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"くるま","num":"9","pred":"あります","text":"くるまが9だいあります","display":"くるま が 9 だい あります","id":1},{"kind":"rel","rel":"decrease","obj":"くるま","num":"?","verb":"でていきました","text":"くるまが?だいでていきました","display":"くるま が ? だい でていきました","id":2},{"kind":"exist","obj":"くるま","num":"8","pred":"あります","text":"くるまが8だいあります","display":"くるま が 8 だい あります","id":3},{"kind":"exist","obj":"くるま","num":"1","pred":"あります","text":"くるまが1だいあります","display":"くるま が 1 だい あります","id":4},{"kind":"rel","rel":"increase","obj":"くるま","num":"?","verb":"きました","text":"くるまが?だいきました","display":"くるま が ? だい きました","id":5}],"note":""},{"lv":2,"asg":10,"lvAsg":210,"requirement":{"mode":"relation","op":"-","a":"6","b":"?","r":"4","story":"compare","text":"「6-?=4」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「6ー?=4」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"ねこ","num":"6","pred":"います","text":"ねこが6ひきいます","display":"ねこ が 6 ひき います","id":1},{"kind":"exist","obj":"いぬ","num":"?","pred":"います","text":"いぬが?ひきいます","display":"いぬ が ? ひき います","id":2},{"kind":"rel","rel":"compare","subj":"ねこ","ref":"いぬ","num":"4","dir":"more","text":"ねこはいぬより4ひきおおいです","display":"ねこ は いぬ より\n4 ひき おおいです","id":3},{"kind":"exist","obj":"ねこ","num":"4","pred":"います","text":"ねこが4ひきいます","display":"ねこ が 4 ひき います","id":4},{"kind":"rel","rel":"compare","subj":"ねこ","ref":"いぬ","num":"?","dir":"more","text":"ねこはいぬより?ひきおおいです","display":"ねこ は いぬ より\n? ひき おおいです","id":5}],"note":""},{"lv":2,"asg":11,"lvAsg":211,"requirement":{"mode":"relation","op":"-","a":"5","b":"?","r":"3","story":"compare","text":"「5-?=3」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「5ー?=3」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"きのうのおきゃくさん","num":"5","pred":"です","text":"きのうのおきゃくさんは5人です","display":"きのうのおきゃくさん は 5 人 です","id":1},{"kind":"exist","obj":"きょうのおきゃくさん","num":"?","pred":"です","text":"きょうのおきゃくさんは?人です","display":"きょうのおきゃくさん は ? 人 です","id":2},{"kind":"rel","rel":"compare","subj":"きょうのおきゃくさん","ref":"きのうのおきゃくさん","num":"3","dir":"less","text":"きょうのおきゃくさんはきのうのおきゃくさんより3人すくないです","display":"きょうのおきゃくさん は きのうのおきゃくさん より\n3 人 すくないです","id":3},{"kind":"exist","obj":"きのうのおきゃくさん","num":"3","pred":"です","text":"きのうのおきゃくさんは3人です","display":"きのうのおきゃくさん は 3 人 です","id":4},{"kind":"rel","rel":"compare","subj":"きょうのおきゃくさん","ref":"きのうのおきゃくさん","num":"5","dir":"less","text":"きょうのおきゃくさんはきのうのおきゃくさんより5人すくないです","display":"きょうのおきゃくさん は きのうのおきゃくさん より\n5 人 すくないです","id":5},{"kind":"exist","obj":"あしたのおきゃくさん","num":"5","pred":"です","text":"あしたのおきゃくさんは5人です","display":"あしたのおきゃくさん は 5 人 です","id":6}],"note":""},{"lv":2,"asg":12,"lvAsg":212,"requirement":{"mode":"relation","op":"-","a":"?","b":"6","r":"2","story":"compare","text":"「?-6=2」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「?ー6=2」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"赤いあさがお","num":"?","pred":"さいています","text":"赤いあさがおが?つさいています","display":"赤いあさがお が ? つ さいています","id":1},{"kind":"exist","obj":"白いあさがお","num":"2","pred":"さいています","text":"白いあさがおが2つさいています","display":"白いあさがお が 2 つ さいています","id":2},{"kind":"rel","rel":"compare","subj":"赤いあさがお","ref":"白いあさがお","num":"6","dir":"more","text":"赤いあさがおは白いあさがおより6つおおくさいています","display":"赤いあさがお は 白いあさがお より\n6つ おおくさいています","id":3},{"kind":"exist","obj":"赤いあさがお","num":"2","pred":"さいています","text":"赤いあさがおが2つさいています","display":"赤いあさがお が 2 つ さいています","id":4},{"kind":"rel","rel":"combine","objs":["赤いあさがお","白いあさがお"],"num":"8","text":"赤いあさがおと白いあさがおがあわせて8つさいています","display":"赤いあさがお と 白いあさがお が\nあわせて 8つ さいています","id":5}],"note":""},{"lv":3,"asg":1,"lvAsg":301,"requirement":{"mode":"relation","op":"+","a":"3","b":"?","r":"7","story":"combine","text":"「3+?=7」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「3+?=7」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"あんぱん","num":"3","pred":"あります","text":"あんぱんが3こあります","display":"あんぱん が 3 こ あります","id":1},{"kind":"exist","obj":"メロンパン","num":"?","pred":"あります","text":"メロンパンが?こあります","display":"メロンパン が ? こ あります","id":2},{"kind":"rel","rel":"combine","objs":["あんぱん","メロンパン"],"num":"7","text":"あんぱんとメロンパンがあわせて7こあります","display":"あんぱん と メロンパン が\nあわせて 7 こ あります","id":3},{"kind":"exist","obj":"メロンパン","num":"7","pred":"あります","text":"メロンパンが7こあります","display":"メロンパン が 7 こ あります","id":4},{"kind":"rel","rel":"compare","subj":"あんぱん","ref":"メロンパン","num":"?","dir":"more","text":"あんぱんはメロンパンより?こおおいです","display":"あんぱん は メロンパン より ? こ おおいです","id":5}],"note":""},{"lv":3,"asg":2,"lvAsg":302,"requirement":{"mode":"relation","op":"+","a":"?","b":"5","r":"8","story":"increase","text":"「?+5=8」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「?+5=8」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"ふね","num":"?","pred":"とまっています","text":"ふねが?そうとまっています","display":"ふね が ? そう とまっています","id":1},{"kind":"rel","rel":"increase","obj":"ふね","num":"5","verb":"もどってきました","text":"ふねが5そうもどってきました","display":"ふね が 5 そう もどってきました","id":2},{"kind":"exist","obj":"ふね","num":"8","pred":"とまっています","text":"ふねが8そうとまっています","display":"ふね が 8 そう とまっています","id":3},{"kind":"exist","obj":"ふね","num":"5","pred":"とまっています","text":"ふねが5そうとまっています","display":"ふね が 5 そう とまっています","id":4},{"kind":"rel","rel":"decrease","obj":"ふね","num":"5","verb":"でていきました","text":"ふねが5そうでていきました","display":"ふね が 5 そう でていきました","id":5}],"note":""},{"lv":3,"asg":3,"lvAsg":303,"requirement":{"mode":"relation","op":"-","a":"9","b":"?","r":"8","story":"decrease","text":"「9-?=8」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「9ー?=8」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"くるま","num":"9","pred":"あります","text":"くるまが9だいあります","display":"くるま が 9 だい あります","id":1},{"kind":"rel","rel":"decrease","obj":"くるま","num":"?","verb":"でていきました","text":"くるまが?だいでていきました","display":"くるま が ? だい でていきました","id":2},{"kind":"exist","obj":"くるま","num":"8","pred":"あります","text":"くるまが8だいあります","display":"くるま が 8 だい あります","id":3},{"kind":"exist","obj":"くるま","num":"1","pred":"あります","text":"くるまが1だいあります","display":"くるま が 1 だい あります","id":4},{"kind":"rel","rel":"increase","obj":"くるま","num":"?","verb":"きました","text":"くるまが?だいきました","display":"くるま が ? だい きました","id":5}],"note":""},{"lv":3,"asg":4,"lvAsg":304,"requirement":{"mode":"relation","op":"-","a":"?","b":"6","r":"2","story":"compare","text":"「?-6=2」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「?ー6=2」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"赤いあさがお","num":"?","pred":"さいています","text":"赤いあさがおが?つさいています","display":"赤いあさがお が ? つ さいています","id":1},{"kind":"exist","obj":"白いあさがお","num":"2","pred":"さいています","text":"白いあさがおが2つさいています","display":"白いあさがお が 2 つ さいています","id":2},{"kind":"rel","rel":"compare","subj":"赤いあさがお","ref":"白いあさがお","num":"6","dir":"more","text":"赤いあさがおは白いあさがおより6つおおくさいています","display":"赤いあさがお は 白いあさがお より\n6つ おおくさいています","id":3},{"kind":"exist","obj":"赤いあさがお","num":"2","pred":"さいています","text":"赤いあさがおが2つさいています","display":"赤いあさがお が 2 つ さいています","id":4},{"kind":"rel","rel":"combine","objs":["赤いあさがお","白いあさがお"],"num":"8","text":"赤いあさがおと白いあさがおがあわせて8つさいています","display":"赤いあさがお と 白いあさがお が\nあわせて 8つ さいています","id":5}],"note":""},{"lv":3,"asg":5,"lvAsg":305,"requirement":{"mode":"calc","op":"-","a":"4","b":"1","r":null,"story":"combine","text":"「4-1」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「4-1」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"ながいひも","num":"1","pred":"あります","text":"ながいひもが1本あります","display":"ながいひも が 1 本 あります","id":1},{"kind":"exist","obj":"みじかいひも","num":"?","pred":"あります","text":"みじかいひもが?本あります","display":"みじかいひも が ? 本 あります","id":2},{"kind":"rel","rel":"combine","objs":["ながいひも","みじかいひも"],"num":"4","text":"ながいひもとみじかいひもがぜんぶで4本あります","display":"ながいひも と みじかいひも が\nぜんぶで 4 本 あります","id":3},{"kind":"exist","obj":"ながいひも","num":"4","pred":"あります","text":"ながいひもが4本あります","display":"ながいひも が 4 本 あります","id":4},{"kind":"rel","rel":"combine","objs":["ながいひも","みじかいひも"],"num":"?","text":"ながいひもとみじかいひもがぜんぶで?本あります","display":"ながいひも と みじかいひも が\nぜんぶで ? 本 あります","id":5}],"note":"類題1"},{"lv":3,"asg":6,"lvAsg":306,"requirement":{"mode":"calc","op":"-","a":"8","b":"3","r":null,"story":"combine","text":"「8-3」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「8ー3」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"白いうさぎ","num":"3","pred":"います","text":"白いうさぎが3ひきいます","display":"白いうさぎ が 3 ひき います","id":1},{"kind":"exist","obj":"黒いうさぎ","num":"?","pred":"います","text":"黒いうさぎが?ひきいます","display":"黒いうさぎ が ? ひき います","id":2},{"kind":"rel","rel":"combine","objs":["白いうさぎ","黒いうさぎ"],"num":"8","text":"白いうさぎと黒いうさぎがぜんぶで8ひきいます","display":"白いうさぎ と 黒いうさぎ が\nぜんぶで 8 ひき います","id":3},{"kind":"exist","obj":"白いうさぎ","num":"8","pred":"います","text":"白いうさぎが8ひきいます","display":"白いうさぎ が 8 ひき います","id":4},{"kind":"rel","rel":"combine","objs":["白いうさぎ","黒いうさぎ"],"num":"?","text":"白いうさぎと黒いうさぎがぜんぶで?ひきいます","display":"白いうさぎ と 黒いうさぎ が\nぜんぶで ? ひき います","id":5}],"note":"類題1"},{"lv":3,"asg":7,"lvAsg":307,"requirement":{"mode":"calc","op":"-","a":"7","b":"4","r":null,"story":"combine","text":"「7-4」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「7ー4」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"白い花かざり","num":"?","pred":"あります","text":"白い花かざりが?こあります","display":"白い花かざり が ? こ あります","id":1},{"kind":"exist","obj":"赤い花かざり","num":"4","pred":"あります","text":"赤い花かざりが4こあります","display":"赤い花かざり が 4 こ あります","id":2},{"kind":"rel","rel":"combine","objs":["白い花かざり","赤い花かざり"],"num":"7","text":"白い花かざりと赤い花かざりがあわせて7こあります","display":"白い花かざり と 赤い花かざり が\nあわせて 7 こ あります","id":3},{"kind":"exist","obj":"白い花かざり","num":"7","pred":"あります","text":"白い花かざりが7こあります","display":"白い花かざり が 7 こ あります","id":4},{"kind":"rel","rel":"combine","objs":["白い花かざり","赤い花かざり"],"num":"?","text":"白い花かざりと赤い花かざりがあわせて?こあります","display":"白い花かざり と 赤い花かざり が\nあわせて ? こ あります","id":5},{"kind":"exist","obj":"きいろい花かざり","num":"4","pred":"あります","text":"きいろい花かざりが4こあります","display":"きいろい花かざり が 4 こ あります","id":6}],"note":""},{"lv":3,"asg":8,"lvAsg":308,"requirement":{"mode":"calc","op":"-","a":"5","b":"4","r":null,"story":"combine","text":"「5-4」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「5ー4」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"男の子","num":"4","pred":"あそんでいます","text":"男の子が4人あそんでいます","display":"男の子 が 4 人 あそんでいます","id":1},{"kind":"exist","obj":"女の子","num":"?","pred":"あそんでいます","text":"女の子が?人あそんでいます","display":"女の子 が ? 人 あそんでいます","id":2},{"kind":"rel","rel":"combine","objs":["男の子","女の子"],"num":"5","text":"男の子と女の子があわせて5人あそんでいます","display":"男の子 と 女の子 が\nあわせて 5 人 あそんでいます","id":3},{"kind":"exist","obj":"男の子","num":"5","pred":"あそんでいます","text":"男の子が5人あそんでいます","display":"男の子 が 5 人 あそんでいます","id":4},{"kind":"rel","rel":"compare","subj":"男の子","ref":"女の子","num":"4","dir":"more","text":"男の子は女の子より4人おおいです","display":"男の子 は 女の子 より\n4 人 おおいです","id":5}],"note":""},{"lv":3,"asg":9,"lvAsg":309,"requirement":{"mode":"calc","op":"-","a":"5","b":"3","r":null,"story":"increase","text":"「5-3」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「5ー3」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"あめ","num":"?","pred":"あります","text":"あめが?こあります","display":"あめ が ? こ あります","id":1},{"kind":"rel","rel":"increase","obj":"あめ","num":"3","verb":"もらいました","text":"あめを3こもらいました","display":"あめ を 3 こ もらいました","id":2},{"kind":"exist","obj":"あめ","num":"5","pred":"あります","text":"あめが5こあります","display":"あめ が 5 こ あります","id":3},{"kind":"exist","obj":"あめ","num":"3","pred":"あります","text":"あめが3こあります","display":"あめ が 3 こ あります","id":4},{"kind":"rel","rel":"increase","obj":"あめ","num":"5","verb":"もらいました","text":"あめを5こもらいました","display":"あめ を 5 こ もらいました","id":5}],"note":"類題2"},{"lv":3,"asg":10,"lvAsg":310,"requirement":{"mode":"calc","op":"-","a":"9","b":"8","r":null,"story":"increase","text":"「9-8」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「9ー8」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"すずめ","num":"?","pred":"います","text":"すずめが?わいます","display":"すずめ が ? わ います","id":1},{"kind":"rel","rel":"increase","obj":"すずめ","num":"8","verb":"ふえました","text":"すずめが8わふえました","display":"すずめ が 8 わ ふえました","id":2},{"kind":"exist","obj":"すずめ","num":"9","pred":"います","text":"すずめが9わいます","display":"すずめ が 9 わ います","id":3},{"kind":"exist","obj":"すずめ","num":"8","pred":"います","text":"すずめが8わいます","display":"すずめ が 8 わ います","id":4},{"kind":"rel","rel":"increase","obj":"すずめ","num":"9","verb":"ふえました","text":"すずめが9わふえました","display":"すずめ が 9 わ ふえました","id":5}],"note":"類題2"},{"lv":3,"asg":11,"lvAsg":311,"requirement":{"mode":"calc","op":"-","a":"6","b":"4","r":null,"story":"increase","text":"「6-4」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「6ー4」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"子ども","num":"?","pred":"います","text":"子どもが?人います","display":"子ども が ? 人 います","id":1},{"kind":"rel","rel":"increase","obj":"子ども","num":"4","verb":"きました","text":"子どもが4人きました","display":"子ども が 4 人 きました","id":2},{"kind":"exist","obj":"子ども","num":"6","pred":"います","text":"子どもが6人います","display":"子ども が 6 人 います","id":3},{"kind":"exist","obj":"子ども","num":"4","pred":"います","text":"子どもが4人います","display":"子ども が 4 人 います","id":4},{"kind":"rel","rel":"increase","obj":"子ども","num":"6","verb":"きました","text":"子どもが6人きました","display":"子ども が 6 人 きました","id":5},{"kind":"exist","obj":"おとな","num":"?","pred":"います","text":"おとなが?人います","display":"おとな が ? 人 います","id":6}],"note":""},{"lv":3,"asg":12,"lvAsg":312,"requirement":{"mode":"calc","op":"-","a":"5","b":"2","r":null,"story":"increase","text":"「5-2」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「5ー2」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"きんぎょ","num":"2","pred":"います","text":"きんぎょが2ひきいます","display":"きんぎょ が 2 ひき います","id":1},{"kind":"rel","rel":"increase","obj":"きんぎょ","num":"?","verb":"もらいました","text":"きんぎょを?ひきもらいました","display":"きんぎょ を ? ひき もらいました","id":2},{"kind":"exist","obj":"きんぎょ","num":"5","pred":"います","text":"きんぎょが5ひきいます","display":"きんぎょ が 5 ひき います","id":3},{"kind":"exist","obj":"きんぎょ","num":"?","pred":"います","text":"きんぎょが?ひきいます","display":"きんぎょ が ? ひき います","id":4},{"kind":"rel","rel":"decrease","obj":"きんぎょ","num":"2","verb":"あげました","text":"きんぎょを2ひきあげました","display":"きんぎょ を 2 ひき あげました","id":5}],"note":""},{"lv":3,"asg":13,"lvAsg":313,"requirement":{"mode":"calc","op":"+","a":"5","b":"3","r":null,"story":"decrease","text":"「5+3」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「5+3」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"がようし","num":"?","pred":"もっています","text":"がようしを?枚もっています","display":"がようし を ? 枚 もっています","id":1},{"kind":"rel","rel":"decrease","obj":"がようし","num":"5","verb":"つかいました","text":"がようしを5枚つかいました","display":"がようし を 5 枚 つかいました","id":2},{"kind":"exist","obj":"がようし","num":"3","pred":"もっています","text":"がようしを3枚もっています","display":"がようし を 3 枚 もっています","id":3},{"kind":"exist","obj":"がようし","num":"5","pred":"もっています","text":"がようしが5枚もっています","display":"がようし が 5 枚 もっています","id":4},{"kind":"rel","rel":"decrease","obj":"がようし","num":"?","verb":"つかいました","text":"がようしを?枚つかいました","display":"がようし を ? 枚 つかいました","id":5}],"note":"類題3"},{"lv":3,"asg":14,"lvAsg":314,"requirement":{"mode":"calc","op":"+","a":"6","b":"2","r":null,"story":"decrease","text":"「6+2」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「6+2」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"ジュース","num":"?","pred":"あります","text":"ジュースが?本あります","display":"ジュース が ? 本 あります","id":1},{"kind":"rel","rel":"decrease","obj":"ジュース","num":"6","verb":"くばります","text":"ジュースを6本くばります","display":"ジュース を 6 本 くばります","id":2},{"kind":"exist","obj":"ジュース","num":"2","pred":"あります","text":"ジュースが2本あります","display":"ジュース が 2 本 あります","id":3},{"kind":"exist","obj":"ジュース","num":"6","pred":"あります","text":"ジュースが6本あります","display":"ジュース が 6 本 あります","id":4},{"kind":"rel","rel":"decrease","obj":"ジュース","num":"?","verb":"くばります","text":"ジュースを?本くばります","display":"ジュース を ? 本 くばります","id":5}],"note":"類題3"},{"lv":3,"asg":15,"lvAsg":315,"requirement":{"mode":"calc","op":"+","a":"2","b":"7","r":null,"story":"decrease","text":"「2+7」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「2+7」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"いちごのケーキ","num":"?","pred":"あります","text":"いちごのケーキが?こあります","display":"いちごのケーキ が ? こ あります","id":1},{"kind":"rel","rel":"decrease","obj":"いちごのケーキ","num":"7","verb":"うれました","text":"いちごのケーキが7こうれました","display":"いちごのケーキ が 7 こ うれました","id":2},{"kind":"exist","obj":"いちごのケーキ","num":"2","pred":"あります","text":"いちごのケーキが2こあります","display":"いちごのケーキ が 2 こ あります","id":3},{"kind":"exist","obj":"いちごのケーキ","num":"7","pred":"あります","text":"いちごのケーキが7こあります","display":"いちごのケーキ が 7 こ あります","id":4},{"kind":"rel","rel":"decrease","obj":"いちごのケーキ","num":"?","verb":"うれました","text":"いちごのケーキが?こうれました","display":"いちごのケーキ が ? こ うれました","id":5},{"kind":"exist","obj":"みかんのケーキ","num":"2","pred":"あります","text":"みかんのケーキが2こあります","display":"みかんのケーキ が 2 こ あります","id":6}],"note":""},{"lv":3,"asg":16,"lvAsg":316,"requirement":{"mode":"calc","op":"+","a":"1","b":"8","r":null,"story":"decrease","text":"「1+8」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「1+8」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"えんぴつ","num":"?","pred":"あります","text":"えんぴつが?ほんあります","display":"えんぴつ が ? ほん あります","id":1},{"kind":"rel","rel":"decrease","obj":"えんぴつ","num":"1","verb":"あげました","text":"えんぴつを1ほんあげました","display":"えんぴつ を 1 ほん あげました","id":2},{"kind":"exist","obj":"えんぴつ","num":"8","pred":"あります","text":"えんぴつが8ほんあります","display":"えんぴつ が 8 ほん あります","id":3},{"kind":"exist","obj":"えんぴつ","num":"1","pred":"あります","text":"えんぴつが1ほんあります","display":"えんぴつ が 1 ほん あります","id":4},{"kind":"rel","rel":"increase","obj":"えんぴつ","num":"8","verb":"かいました","text":"えんぴつを8ほんかいました","display":"えんぴつ を 8 ほん かいました","id":5}],"note":""},{"lv":3,"asg":17,"lvAsg":317,"requirement":{"mode":"calc","op":"+","a":"7","b":"1","r":null,"story":"compare","text":"「7+1」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「7+1」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"ねこ","num":"?","pred":"います","text":"ねこが?ひきいます","display":"ねこ が ? ひき います","id":1},{"kind":"exist","obj":"いぬ","num":"1","pred":"います","text":"いぬが1ひきいます","display":"いぬ が 1 ひき います","id":2},{"kind":"rel","rel":"compare","subj":"ねこ","ref":"いぬ","num":"7","dir":"more","text":"ねこはいぬより7ひきおおいです","display":"ねこ は いぬ より\n7 ひき おおいです","id":3},{"kind":"exist","obj":"いぬ","num":"7","pred":"います","text":"いぬが7ひきいます","display":"いぬ が 7 ひき います","id":4},{"kind":"rel","rel":"compare","subj":"ねこ","ref":"いぬ","num":"?","dir":"more","text":"ねこはいぬより?ひきおおいです","display":"ねこ は いぬ より\n? ひき おおいです","id":5}],"note":"類題4"},{"lv":3,"asg":18,"lvAsg":318,"requirement":{"mode":"calc","op":"+","a":"5","b":"4","r":null,"story":"compare","text":"「5+4」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「5+4」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"きのうきた人","num":"?","pred":"です","text":"きのうきた人は?人です","display":"きのうきた人 は ? 人 です","id":1},{"kind":"exist","obj":"きょうきた人","num":"4","pred":"です","text":"きょうきた人は4人です","display":"きょうきた人 は 4 人 です","id":2},{"kind":"rel","rel":"compare","subj":"きのうきた人","ref":"きょうきた人","num":"5","dir":"more","text":"きのうきた人はきょうきた人より5人おおいです","display":"きのうきた人 は きょうきた人 より\n5 人 おおいです","id":3},{"kind":"exist","obj":"きょうきた人","num":"5","pred":"です","text":"きょうきた人は5人です","display":"きょうきた人 は 5 人 です","id":4},{"kind":"rel","rel":"compare","subj":"きのうきた人","ref":"きょうきた人","num":"?","dir":"more","text":"きのうきた人はきょうきた人より?人おおいです","display":"きのうきた人 は きょうきた人 より\n? 人 おおいです","id":5}],"note":"類題4"},{"lv":3,"asg":19,"lvAsg":319,"requirement":{"mode":"calc","op":"+","a":"3","b":"6","r":null,"story":"compare","text":"「3+6」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「3+6」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"きいろい花","num":"?","pred":"さいています","text":"きいろい花が?こさいています","display":"きいろい花 が ? こ さいています","id":1},{"kind":"exist","obj":"白い花","num":"3","pred":"さいています","text":"白い花が3こさいています","display":"白い花 が 3 こ さいています","id":2},{"kind":"rel","rel":"compare","subj":"白い花","ref":"きいろい花","num":"6","dir":"less","text":"白い花はきいろい花より6こすくないです","display":"白い花 は きいろい花 より\n6 こ すくないです","id":3},{"kind":"exist","obj":"きいろい花","num":"6","pred":"さいています","text":"きいろい花が6こさいています","display":"きいろい花 が 6 こ さいています","id":4},{"kind":"rel","rel":"compare","subj":"白い花","ref":"きいろい花","num":"?","dir":"less","text":"白い花はきいろい花より?こすくないです","display":"白い花 は きいろい花 より\n? こ すくないです","id":5},{"kind":"exist","obj":"赤い花","num":"3","pred":"さいています","text":"赤い花が3こさいています","display":"赤い花 が 3 こ さいています","id":6}],"note":""},{"lv":3,"asg":20,"lvAsg":320,"requirement":{"mode":"calc","op":"+","a":"5","b":"2","r":null,"story":"compare","text":"「5+2」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「5+2」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"さんすうのもんだい","num":"?","pred":"あります","text":"さんすうのもんだいが?だいあります","display":"さんすうのもんだい が ? だい あります","id":1},{"kind":"exist","obj":"こくごのもんだい","num":"5","pred":"あります","text":"こくごのもんだいが5だいあります","display":"こくごのもんだい が 5 だい あります","id":2},{"kind":"rel","rel":"compare","subj":"さんすうのもんだい","ref":"こくごのもんだい","num":"2","dir":"more","text":"さんすうのもんだいはこくごのもんだいより2だいおおいです","display":"さんすうのもんだい は こくごのもんだい より\n2 だい おおいです","id":3},{"kind":"exist","obj":"さんすうのもんだい","num":"2","pred":"あります","text":"さんすうのもんだいが2だいあります","display":"さんすうのもんだい が 2 だい あります","id":4},{"kind":"rel","rel":"combine","objs":["さんすうのもんだい","こくごのもんだい"],"num":"?","text":"さんすうのもんだいとこくごのもんだいがあわせて?だいあります","display":"さんすうのもんだい と こくごのもんだい が\nあわせて ? だい あります","id":5}],"note":""}]};
+</script>
+
+<script>
+/*
+ * ログ 1 行の盤面由来の列を作る純粋関数（ブラウザと tools/test_gas.js の両方で使う）。
+ *
+ * 列の意味は寺西小 2020 実践の生ログ（data/00_元データ/README.md）に合わせる。
+ *   ans        … slot3×100 + slot2×10 + slot1 の数値（例: ①3 ②1 ③2 → 213）
+ *                REMOVE 行だけは「取り除く前」の盤面で作る（生ログ 304,801 行で確認）
+ *   ans_order  … slot1 slot2 slot3 を並べた 3 桁の文字列（例: "312"）
+ *   ans_sort   … 3 つの番号を昇順に並べた 3 桁の文字列（例: "123"、空きは 0 で "003"）
+ *   jdg        … 盤面が 5 制約をすべて満たせば "s"、それ以外は "f"（"t" は使わない）
+ *   C.S〜O.S   … 3 枚そろった盤面だけ 0/1 を入れ、そろっていなければ空欄
+ *   validity   … 5 フラグの合計（3 枚そろったときだけ）
+ * ans・jdg・5 フラグ・validity は judgeSlots（REMOVE では取り除く前の盤面）から、
+ * slot1〜3・ans_sort・ans_order は slots（操作後の盤面）から作る。生ログがそうなっているため
+ * （REMOVE 行の jdg は「取り除く前」の盤面で読むと 83,312 行すべてで一致する）。
+ */
+var MSK_LOG = (function () {
+  function ansNumber(slots) { return slots[2] * 100 + slots[1] * 10 + slots[0]; }
+  function ansOrder(slots) { return slots.join(''); }
+  function ansSort(slots) { return slots.slice().sort(function (a, b) { return a - b; }).join(''); }
+
+  /** 盤面から決まる列。task が無い（ログイン行など）ときは空の盤面として扱う。 */
+  function boardFields(task, slots, judgeSlots) {
+    var s = (slots || [0, 0, 0]).map(Number);
+    var j = (judgeSlots || s).map(Number);
+    var out = {
+      ans: ansNumber(j), ans_sort: ansSort(s), ans_order: ansOrder(s),
+      slot1: s[0], slot2: s[1], slot3: s[2],
+      jdg: 'f', 'C.S': '', 'ST.S': '', 'N.S': '', 'SS.S': '', 'O.S': '', validity: '',
+      reason: '',
+    };
+    if (!task || !j.every(function (x) { return x > 0; })) return out;
+    var r = MSK.evaluate(task, j);
+    var sum = 0;
+    MSK.FLAGS.forEach(function (f) { out[f] = r.flags[f]; sum += r.flags[f]; });
+    out.validity = sum;
+    out.jdg = r.allSatisfied ? 's' : 'f';
+    out.reason = MSK.FLAGS.filter(function (f) { return r.reasons[f]; })
+      .map(function (f) { return f + ': ' + r.reasons[f]; }).join(' / ');
+    return out;
+  }
+
+  return { ansNumber: ansNumber, ansOrder: ansOrder, ansSort: ansSort, boardFields: boardFields };
+})();
+</script>
+
+<script>
+'use strict';
+/*
+ * モンサクン（GAS 版）の画面とログ記録。
+ *
+ * 作問画面とドラッグ操作は demo_bn_support/public/app.js から流用した。違いは次の 4 点。
+ *   - 支援パネル（到達確率・BN・知識モデル）は無い。判定（こたえあわせ）だけをブラウザで行う。
+ *   - レベル選択 → 課題を番号順に出題 → レベルクリア、という実践の流れにした。
+ *   - 操作のたびに、寺西小 2020 の生ログと同じ列のイベントを作り、まとめてサーバへ送る。
+ *   - 最初に各自の Google アカウントでログインする（Google Identity Services）。
+ *     受け取った ID トークンを GAS が Google に照会してメールを確定し、セッション券を返す。
+ *     セッション券は端末に保存し、再読み込みではログインを省く。「おわる」で消す。
+ *
+ * 1 回の画面操作が複数のイベントになる場合（demo の手数の数え方と同じ）:
+ *   選択肢 → 黒板の空き行       … SET
+ *   黒板 → 選択肢              … REMOVE
+ *   黒板 → 黒板の空き行         … REMOVE（元の行）→ SET（先の行）
+ *   黒板の 2 枚を入れ替え        … REMOVE（元）→ REMOVE（先）→ SET（先）→ SET（元）
+ *   選択肢 → 埋まった行         … REMOVE（押し出す 1 枚）→ SET（置く 1 枚）
+ */
+
+var $ = function (sel, root) { return (root || document).querySelector(sel); };
+var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+function el(tag, attrs, kids) {
+  var n = document.createElement(tag);
+  Object.keys(attrs || {}).forEach(function (k) {
+    if (k === 'class') n.className = attrs[k];
+    else if (k.indexOf('on') === 0) n.addEventListener(k.slice(2), attrs[k]);
+    else n.setAttribute(k, attrs[k]);
+  });
+  [].concat(kids || []).forEach(function (c) {
+    if (c === null || c === undefined) return;
+    n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  });
+  return n;
+}
+function unixSec() { return Math.floor(Date.now() / 1000); }
+
+var APP = {
+  info: null,
+  pageSession: Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
+  seq: 0, queue: [], sending: false, fail: 0,
+  loginSession: 0,
+  lv: 0, list: [], idx: 0,
+  task: null, slots: [0, 0, 0], tray: [], home: {}, stp: 0, checks: 0,
+  probSession: 0, initPos: '0', trial: 1, solved: false,
+};
+
+// ---------------------------------------------------------------------------
+// 端末に残す情報（未送信のログ・クリア済みの課題・試行回数）。読めなくても動くようにする。
+// ---------------------------------------------------------------------------
+function storeKey(name) { return 'monsakun:' + (APP.info ? APP.info.userId : 'anon') + ':' + name; }
+function load(name, fallback) {
+  try { var s = localStorage.getItem(storeKey(name)); return s ? JSON.parse(s) : fallback; }
+  catch (e) { return fallback; }
+}
+function save(name, value) {
+  try { localStorage.setItem(storeKey(name), JSON.stringify(value)); } catch (e) { /* 保存できなくても続ける */ }
+}
+
+// ---------------------------------------------------------------------------
+// 起動
+// ---------------------------------------------------------------------------
+var SESSION_KEY = 'monsakun:session';
+
+function boot() {
+  var saved = null;
+  try { saved = localStorage.getItem(SESSION_KEY); } catch (e) { /* 読めなければログインから */ }
+  if (!saved) return showLogin();
+  API.resume(saved).then(onBootstrap).catch(function (err) {
+    if (err.code === 'auth') { forgetSession(); return showLogin(); }
+    showError(err.message);
+  });
+}
+
+function forgetSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* 無視 */ }
+}
+
+/** Google のログインボタンを出す。ライブラリの読み込みを待ってから描く。 */
+function showLogin(msg) {
+  show('login');
+  $('#loginmsg').textContent = msg || '';
+  if (MSK_CONFIG.mockLogin) {          // tools/preview.js のプレビュー用
+    $('#gbtn').innerHTML = '';
+    $('#gbtn').appendChild(el('button', { class: 'logout', onclick: function () { onCredential({ credential: 'preview' }); } },
+      '（プレビュー）ログイン'));
+    return;
+  }
+  var tries = 0;
+  (function draw() {
+    if (!(window.google && google.accounts && google.accounts.id)) {
+      if (++tries > 100) { $('#loginmsg').textContent = 'Google のログイン部品を読み込めませんでした。通信を確かめて、開き直してください。'; return; }
+      return setTimeout(draw, 100);
+    }
+    google.accounts.id.initialize({ client_id: MSK_CONFIG.clientId, callback: onCredential, auto_select: false });
+    $('#gbtn').innerHTML = '';
+    google.accounts.id.renderButton($('#gbtn'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'ja' });
+  })();
+}
+
+function onCredential(resp) {
+  $('#loginmsg').textContent = 'ログインしています…';
+  API.login(resp.credential).then(function (info) {
+    try { localStorage.setItem(SESSION_KEY, info.session); } catch (e) { /* 保存できなくても今回は使える */ }
+    onBootstrap(info);
+  }).catch(function (err) {
+    $('#loginmsg').textContent = err.message;
+  });
+}
+
+function onBootstrap(info) {
+  var sameUser = APP.info && APP.info.userId === info.userId;
+  APP.info = info;
+  $('#who').textContent = info.email + (info.registered ? '' : '（名簿に未登録）');
+  if (!APP.wired) {                     // ログインし直したときに二重に登録しない
+    APP.wired = true;
+    $('#action').addEventListener('click', doCheck);
+    $('#back').addEventListener('click', quitLevel);
+    $('#logout').addEventListener('click', logout);
+    $('#again').addEventListener('click', function () { location.reload(); });
+    window.addEventListener('resize', fitStage);
+    window.addEventListener('pagehide', function () { if (APP.info) save('queue', APP.queue); flush(); });
+    setInterval(flush, info.flushMs);
+  }
+  if (sameUser && APP.resumeTo) {       // 有効期限切れからのログインし直し：もとの画面へ戻る
+    var back = APP.resumeTo;
+    APP.resumeTo = null;
+    show(back);
+    flush();
+    return;
+  }
+  APP.queue = load('queue', []);       // 前回送れなかったログがあれば先に送る
+  APP.loginSession = unixSec();
+  emit('LOGIN', { lv: 0, asg: 1, session: APP.loginSession, noTask: true, flush: true });
+  showHome();
+}
+
+/** セッション券が切れた・無効になった。ログは端末に残したまま、ログインし直してもらう。 */
+function needLogin(msg) {
+  forgetSession();
+  if (!APP.resumeTo) APP.resumeTo = ['home', 'play', 'bye'].find(function (id) { return !$('#' + id).hidden; }) || 'home';
+  showLogin(msg || 'もういちど ログインしてね');
+}
+
+function show(id) {
+  ['loading', 'login', 'error', 'home', 'play', 'bye'].forEach(function (s) { $('#' + s).hidden = s !== id; });
+  if (id === 'play') fitStage();
+}
+
+function showError(msg) {
+  $('#errormsg').textContent = msg;
+  show('error');
+}
+
+// ---------------------------------------------------------------------------
+// レベル選択
+// ---------------------------------------------------------------------------
+function tasksOfLevel(lv) {
+  return MSK_TASKS.tasks.filter(function (t) { return t.lv === lv; })
+    .sort(function (a, b) { return a.asg - b.asg; });
+}
+
+function showHome() {
+  var cleared = load('cleared', {});
+  var box = $('#levels');
+  box.innerHTML = '';
+  APP.info.levels.forEach(function (lv) {
+    var list = tasksOfLevel(lv);
+    var n = list.filter(function (t) { return cleared[t.lvAsg]; }).length;
+    box.appendChild(el('button', {
+      class: n === list.length ? 'done' : '',
+      onclick: function () { startLevel(lv); },
+    }, ['レベル ' + lv, el('small', {}, n + ' / ' + list.length + ' もん')]));
+  });
+  APP.task = null;
+  show('home');
+}
+
+function startLevel(lv) {
+  var cleared = load('cleared', {});
+  APP.lv = lv;
+  APP.list = tasksOfLevel(lv);
+  // まだ正解していない最初の課題から始める（全部正解済みなら 1 番から）
+  var first = APP.list.findIndex(function (t) { return !cleared[t.lvAsg]; });
+  APP.idx = first < 0 ? 0 : first;
+  emit('LEVEL_BEGIN', { lv: lv, asg: APP.list[APP.idx].asg, session: APP.loginSession, noTask: true });
+  startProblem();
+}
+
+function startProblem() {
+  var t = APP.list[APP.idx];
+  APP.task = t;
+  APP.slots = [0, 0, 0];
+  APP.stp = 0;
+  APP.checks = 0;
+  APP.solved = false;
+  // 実機は課題開始時にカードの並びをシャッフルする（生ログの InitPosition 列に対応）
+  var ids = t.cards.map(function (c) { return c.id; });
+  for (var i = ids.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = ids[i]; ids[i] = ids[j]; ids[j] = tmp;
+  }
+  APP.tray = ids;
+  APP.home = {};
+  ids.forEach(function (id, k) { APP.home[id] = k; });
+  APP.initPos = ids.join('');
+  APP.probSession = unixSec();
+  var trials = load('trial', {});
+  trials[t.lvAsg] = (trials[t.lvAsg] || 0) + 1;
+  save('trial', trials);
+  APP.trial = trials[t.lvAsg];
+  $('#learnermsg').hidden = true;
+  emit('PROB_BEGIN');
+  show('play');
+  render();
+}
+
+/** 「もどる」：課題の途中でレベルをやめる。実機と同じく、その課題の番号で LEVEL_END を記録する。 */
+function quitLevel() {
+  if (!APP.task) return;
+  emit('LEVEL_END', { session: unixSec(), slots: [0, 0, 0], stp: 0, check: 0, trial: 'NA', board: false, flush: true });
+  showHome();
+}
+
+function logout() {
+  emit('LOGOUT', { lv: 0, asg: 1, session: APP.loginSession, noTask: true, flush: true });
+  $('#byemsg').textContent = 'きろくを おくっています…';
+  show('bye');
+  // 送り終わってから（最大 15 秒待って）セッション券を消す。共用の端末で次の人が前の人として記録されないように。
+  var waited = 0;
+  (function wait() {
+    if (APP.queue.length && waited < 15000) { waited += 300; return setTimeout(wait, 300); }
+    forgetSession();
+    $('#byemsg').textContent = APP.queue.length
+      ? 'まだ おくれていない きろくが あります。つぎに ログインしたときに おくります。'
+      : 'このまま とじて だいじょうぶです。';
+  })();
+}
+
+// ---------------------------------------------------------------------------
+// ログ
+// ---------------------------------------------------------------------------
+/**
+ * イベントを 1 件作って送信待ちに積む。列名は寺西小 2020 の生ログと同じ。
+ * Number・Class・Grade・user_id・email はサーバが名簿とログイン情報から入れる（ここでは送らない）。
+ */
+function emit(ope1, o) {
+  o = o || {};
+  var t = o.noTask ? null : APP.task;
+  var slots = o.slots || (t ? APP.slots.slice() : [0, 0, 0]);
+  var lv = o.lv !== undefined ? o.lv : t.lv;
+  var asg = o.asg !== undefined ? o.asg : t.asg;
+  var ev = MSK_LOG.boardFields(o.board === false ? null : t, slots, o.judgeSlots);
+  var cardObj = t && o.card ? t.cards.find(function (c) { return c.id === o.card; }) : null;
+  APP.seq += 1;
+  ev.event_id = APP.pageSession + '-' + APP.seq;
+  ev.page_session = APP.pageSession;
+  ev.seq = APP.seq;
+  ev.client_ts = Date.now();
+  ev.app_version = APP.info.appVersion;
+  ev.ope1 = ope1;
+  ev.lv = lv;
+  ev.asg = asg;
+  ev.lvAsg = lv * 100 + asg;
+  ev.InitPosition = o.initPos !== undefined ? o.initPos : (t ? APP.initPos : '0');
+  ev.stp = o.stp !== undefined ? o.stp : (t ? APP.stp : 0);
+  ev.slot = o.slot || 0;
+  ev.card = o.card || 0;
+  ev.session = o.session !== undefined ? o.session : APP.probSession;
+  ev.check = o.check !== undefined ? o.check : (t ? APP.checks : 0);
+  ev.trial = o.trial !== undefined ? o.trial : (t ? APP.trial : 'NA');
+  ev.card_text = cardObj ? cardObj.text : '';
+  if (ope1 !== 'CHECK') ev.reason = '';   // 不充足の理由は答え合わせの行にだけ残す
+  if (ope1 === 'PROB_END') {
+    // 実機の PROB_END 行のフラグ列には意味の確定しない集計値が入っているので、再現せず空欄にする
+    MSK.FLAGS.concat(['validity']).forEach(function (k) { ev[k] = ''; });
+  }
+  APP.queue.push(ev);
+  save('queue', APP.queue);
+  if (o.flush || APP.queue.length >= APP.info.maxBatch) flush();
+  updateSendState();
+}
+
+function flush() {
+  if (APP.sending || !APP.queue.length || !APP.info || !$('#login').hidden) return;
+  APP.sending = true;
+  var batch = APP.queue.slice(0, APP.info.maxBatch);
+  var session = APP.info.session;
+  API.log(session, batch).then(function () {
+    APP.queue.splice(0, batch.length);
+    save('queue', APP.queue);
+    APP.sending = false;
+    APP.fail = 0;
+    updateSendState();
+    if (APP.queue.length) flush();
+  }).catch(function (err) {
+    APP.sending = false;
+    if (err.code === 'auth') {
+      // セッション券が切れた：送り直しても通らないので、ログインし直してもらう（ログは端末に残る）
+      updateSendState(err);
+      return needLogin(err.message);
+    }
+    // 失敗したら待ち時間を倍にして送り直す（最大 1 分）。ログは端末に残っているので失われない。
+    APP.fail += 1;
+    updateSendState(err);
+    setTimeout(flush, Math.min(60000, 2000 * Math.pow(2, APP.fail)));
+  });
+}
+
+function updateSendState(err) {
+  var s = $('#sendstate');
+  var n = APP.queue.length;
+  s.hidden = n === 0 && !APP.fail;
+  s.className = 'sendstate' + (APP.fail ? ' fail' : '');
+  s.textContent = APP.fail
+    ? '送信できていません（' + n + ' 件を保存中）' + (err && err.message ? '：' + err.message : '')
+    : '送信待ち ' + n + ' 件';
+}
+
+// ---------------------------------------------------------------------------
+// 盤面の操作（1 枚ごとに SET / REMOVE を記録）
+// ---------------------------------------------------------------------------
+function removeFromSlot(i) {
+  var before = APP.slots.slice();   // 生ログの REMOVE 行は ans・jdg・フラグを取り除く前の盤面で持つ
+  var card = APP.slots[i];
+  APP.slots[i] = 0;
+  APP.tray[APP.home[card]] = card;
+  APP.stp += 1;
+  emit('REMOVE', { slot: i + 1, card: card, judgeSlots: before });
+}
+
+function setToSlot(i, card) {
+  APP.tray[APP.home[card]] = 0;
+  APP.slots[i] = card;
+  APP.stp += 1;
+  emit('SET', { slot: i + 1, card: card });
+}
+
+/** 盤面が変わったら前の答え合わせの吹き出しを消す（今の盤面への指摘だと誤解させないため） */
+function clearHint() {
+  var hint = $('#learnermsg');
+  if (!hint.hidden) hint.hidden = true;
+}
+
+function placeInSlot(id, from, slot) {
+  if (APP.solved) return;
+  if (from.kind === 'slot' && from.index === slot) return;
+  clearHint();
+  var occupant = APP.slots[slot];
+  if (from.kind === 'slot') {
+    removeFromSlot(from.index);
+    if (occupant) removeFromSlot(slot);
+    setToSlot(slot, id);
+    if (occupant) setToSlot(from.index, occupant);
+  } else {
+    if (occupant) removeFromSlot(slot);
+    setToSlot(slot, id);
+  }
+  render();
+}
+
+function returnToTray(id, from) {
+  if (APP.solved || from.kind !== 'slot') return;
+  clearHint();
+  removeFromSlot(from.index);
+  render();
+}
+
+// ---------------------------------------------------------------------------
+// 答え合わせ
+// ---------------------------------------------------------------------------
+function doCheck() {
+  if (APP.solved || !APP.slots.every(function (s) { return s > 0; })) return;
+  var r = MSK.evaluate(APP.task, APP.slots);
+  APP.checks += 1;
+  emit('CHECK', { flush: true });
+  var hint = $('#learnermsg');
+  if (r.allSatisfied) {
+    APP.solved = true;
+    hint.hidden = true;
+    fitStage();
+    var cleared = load('cleared', {});
+    cleared[APP.task.lvAsg] = true;
+    save('cleared', cleared);
+    var last = APP.idx === APP.list.length - 1;
+    showVerdict(true, last ? 'レベル ' + APP.lv + ' クリア！' : 'つぎの もんだいへ', nextProblem);
+  } else {
+    showVerdict(false);
+    if (APP.info.feedback === 'reasons') {
+      hint.hidden = false;
+      hint.className = 'msk-hint';
+      hint.textContent = MSK.FLAGS.filter(function (f) { return r.reasons[f]; })
+        .map(function (f) { return r.reasons[f]; })[0] || '';
+      fitStage();   // 吹き出しの分だけ画面が高くなるので、拡縮をやり直す（しないと下が切れる）
+    }
+  }
+}
+
+function nextProblem() {
+  emit('PROB_END', { flush: true });
+  var lastAsg = APP.list[APP.list.length - 1].asg;
+  APP.idx += 1;
+  if (APP.idx < APP.list.length) return startProblem();
+  // レベルを最後まで解いた。実機は「最終課題番号＋1」の番号で LEVEL_END → LEVEL_CLEAR を記録する。
+  var o = { asg: lastAsg + 1, session: unixSec(), slots: [0, 0, 0], stp: 0, check: 0, trial: 'NA', board: false };
+  emit('LEVEL_END', o);
+  emit('LEVEL_CLEAR', Object.assign({ flush: true }, o));
+  showHome();
+}
+
+function showVerdict(correct, nextLabel, onNext) {
+  var old = $('.msk-verdict');
+  if (old) old.remove();
+  var inner = el('div', {}, [
+    el('span', { class: 'mark' }, correct ? '〇' : '✗'),
+    correct ? 'せいかい！' : 'ざんねん…',
+  ]);
+  var v = el('div', { class: 'msk-verdict ' + (correct ? 'ok' : 'ng') }, [inner]);
+  if (correct) {
+    inner.appendChild(el('button', { onclick: function () { v.remove(); onNext(); } }, nextLabel));
+  } else {
+    setTimeout(function () { v.remove(); }, 1500);
+  }
+  $('#stage').appendChild(v);
+}
+
+// ---------------------------------------------------------------------------
+// 描画と拡縮（demo_bn_support/public/app.js と同じ）
+// ---------------------------------------------------------------------------
+var DESIGN_W = 1000;
+var stageScale = 1;
+
+// 縮めずに並べ替える配置（fluid）に切り替える条件：縦長の画面（スマホ縦・タブレット縦）、
+// 幅 < 760（狭い画面）、高さ < 520（スマホ横）。実機と同じ横長の配置を拡縮するのは、横長で十分な大きさの画面だけ。
+// Why：タブレット縦（768×1024）で横長の配置を拡縮すると 0.75 倍になり、カードの文字が 11.3px になった。
+var FLUID_MAX_W = 760, FLUID_MAX_H = 520;
+
+function fitStage() {
+  var fit = $('#fit'), stage = $('#stage');
+  if (!fit || !stage || $('#play').hidden) return;
+  var vw = window.innerWidth, vh = window.innerHeight;
+  var fluid = vw < FLUID_MAX_W || vh < FLUID_MAX_H || vh > vw;
+  document.body.classList.toggle('fluid', fluid);
+  stage.classList.toggle('fluid', fluid);
+  // 「もどる」の置き場所：スマホ用の配置ではタブと同じ行の右端（作問条件の白枠に重ならないように）、
+  // 拡縮する配置では実機と同じく左下。
+  var back = $('#back'), tabs = $('.msk-tabs'), left = $('.msk-left');
+  if (fluid && back.parentNode !== tabs) tabs.appendChild(back);
+  if (!fluid && back.parentNode !== left) left.appendChild(back);
+  if (fluid) {
+    // スマホ：実機の画面を丸ごと縮めると文字が 5px ほどになって読めないので、縮めずに縦に並べ替える。
+    // はみ出す分は縦にスクロールする（カードに触れたときはスクロールせずドラッグになる）。
+    stageScale = 1;
+    stage.style.transform = 'none';
+    fit.style.height = 'auto';
+    fit.style.width = '100%';
+    return;
+  }
+  // タブレット・PC：実機は固定解像度のタブレット画面なので、設計幅 1000px でレイアウトして画面に合わせて拡縮する。
+  // 幅と高さの両方に収まる倍率にし、スクロールしなくても全体が見えるようにする。
+  // 倍率は外枠（#play）の幅から求める。#fit は下で幅を固定するので、それを基準にすると縮められなくなる。
+  var availW = Math.min($('#play').clientWidth - 16, 1600);
+  stageScale = Math.min(1.6, availW / DESIGN_W, (vh - 16) / stage.offsetHeight);
+  stage.style.transform = 'scale(' + stageScale + ')';
+  fit.style.height = (stage.offsetHeight * stageScale) + 'px';
+  fit.style.width = (DESIGN_W * stageScale) + 'px';
+}
+
+function cardEl(id) {
+  var c = APP.task.cards.find(function (x) { return x.id === id; });
+  var n = el('div', { class: 'msk-card', 'data-card': String(id) });
+  n.textContent = c.display || c.text;
+  n.addEventListener('pointerdown', onGrab);
+  return n;
+}
+
+function render() {
+  var t = APP.task;
+  $('#tabLv').textContent = 'レベル:' + t.lv;
+  $('#tabAsg').textContent = 'もんだい:' + t.asg;
+  $('#req').textContent = t.requirement.display || t.requirement.text;
+
+  var board = $('#board');
+  board.innerHTML = '';
+  ['1', '2', '3'].forEach(function (mark, i) {   // 丸は CSS の枠で描く（丸囲み数字だと二重になる）
+    var slot = el('div', { class: 'msk-slot', 'data-slot': String(i) });
+    if (APP.slots[i]) slot.appendChild(cardEl(APP.slots[i]));
+    board.appendChild(el('div', { class: 'msk-row' }, [el('div', { class: 'msk-num' }, mark), slot]));
+  });
+
+  var list = $('#cardlist');
+  list.innerHTML = '';
+  APP.tray.forEach(function (cid, i) {
+    var pos = el('div', { class: 'msk-pos', 'data-pos': String(i) });
+    if (cid) pos.appendChild(cardEl(cid));
+    list.appendChild(pos);
+  });
+
+  var ready = APP.slots.every(function (s) { return s > 0; });
+  var btn = $('#action');
+  btn.textContent = ready ? 'こたえあわせ' : 'カードをならべよう';
+  btn.className = 'msk-action' + (ready ? ' ready' : '');
+  fitStage();
+}
+
+// ---------------------------------------------------------------------------
+// ドラッグ＆ドロップ（マウスでもタッチでも動くよう pointer イベントで実装）
+// ---------------------------------------------------------------------------
+var DRAG = { on: false, pointerId: null, id: 0, from: null, ghost: null, x0: 0, y0: 0, moved: false,
+             target: null, node: null };
+
+function onGrab(ev) {
+  if (ev.button !== undefined && ev.button !== 0) return;
+  if (APP.solved) return;
+  // ドラッグ中に別の指で触れても新しいドラッグを始めない（前のゴーストが画面に取り残されるため）
+  if (DRAG.on) return;
+  var node = ev.currentTarget;
+  var slotEl = node.closest('.msk-slot');
+  var posEl = node.closest('.msk-pos');
+  DRAG.on = true;
+  DRAG.pointerId = ev.pointerId;
+  DRAG.id = Number(node.dataset.card);
+  DRAG.from = slotEl ? { kind: 'slot', index: Number(slotEl.dataset.slot) }
+                     : { kind: 'tray', index: Number(posEl.dataset.pos) };
+  DRAG.x0 = ev.clientX; DRAG.y0 = ev.clientY; DRAG.moved = false;
+
+  var rect = node.getBoundingClientRect();   // 拡縮後の実寸
+  var g = el('div', { class: 'msk-ghost' });
+  g.textContent = node.textContent;
+  g.style.width = (rect.width / stageScale) + 'px';
+  g.style.height = (rect.height / stageScale) + 'px';
+  g.style.transformOrigin = 'top left';
+  // 傾けない。傾けたゴーストが取り残されると「カードが斜めになった」ように見えるため
+  g.style.transform = 'scale(' + stageScale + ')';
+  g.style.left = rect.left + 'px';
+  g.style.top = rect.top + 'px';
+  DRAG.offX = ev.clientX - rect.left;
+  DRAG.offY = ev.clientY - rect.top;
+  document.body.appendChild(g);
+  DRAG.ghost = g;
+  node.classList.add('dragging');
+  DRAG.node = node;
+
+  // 指が作問画面の外（GAS の iframe の外を含む）へ出ても続きのイベントを受け取る
+  try { $('#stage').setPointerCapture(ev.pointerId); } catch (e) { /* 取れなくても動く */ }
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onDrop);
+  // タッチではブラウザがスクロール等のためにドラッグを打ち切ることがある（pointercancel）。
+  // 受けないとゴーストと薄いカードが残る。打ち切られたら何も動かさずに元へ戻す。
+  window.addEventListener('pointercancel', onCancel);
+  window.addEventListener('blur', onCancel);
+  ev.preventDefault();
+}
+
+function onMove(ev) {
+  if (!DRAG.on || ev.pointerId !== DRAG.pointerId) return;
+  if (Math.abs(ev.clientX - DRAG.x0) > 5 || Math.abs(ev.clientY - DRAG.y0) > 5) DRAG.moved = true;
+  DRAG.ghost.style.left = (ev.clientX - DRAG.offX) + 'px';
+  DRAG.ghost.style.top = (ev.clientY - DRAG.offY) + 'px';
+  var t = dropTargetAt(ev.clientX, ev.clientY);
+  if (DRAG.target !== t) {
+    $$('.over').forEach(function (n) { n.classList.remove('over'); });
+    if (t) t.classList.add('over');
+    DRAG.target = t;
+  }
+}
+
+/** ドラッグの後始末（ゴースト・薄いカード・ハイライト・リスナー）。落とし先の処理はしない。 */
+function endDrag() {
+  window.removeEventListener('pointermove', onMove);
+  window.removeEventListener('pointerup', onDrop);
+  window.removeEventListener('pointercancel', onCancel);
+  window.removeEventListener('blur', onCancel);
+  try { $('#stage').releasePointerCapture(DRAG.pointerId); } catch (e) { /* 取っていなければ何もしない */ }
+  $$('.over').forEach(function (n) { n.classList.remove('over'); });
+  $$('.msk-ghost').forEach(function (n) { n.remove(); });
+  $$('.msk-card.dragging').forEach(function (n) { n.classList.remove('dragging'); });
+  DRAG.on = false; DRAG.pointerId = null; DRAG.ghost = null; DRAG.target = null; DRAG.node = null;
+}
+
+function onCancel(ev) {
+  if (!DRAG.on) return;
+  if (ev && ev.type === 'pointercancel' && ev.pointerId !== DRAG.pointerId) return;
+  endDrag();
+}
+
+function dropTargetAt(x, y) {
+  var stack = document.elementsFromPoint(x, y);
+  for (var i = 0; i < stack.length; i++) {
+    var n = stack[i];
+    if (n.classList && (n.classList.contains('msk-slot') || n.classList.contains('msk-pos'))) return n;
+    if (n.id === 'cardlist') return n;
+  }
+  return null;
+}
+
+function onDrop(ev) {
+  if (!DRAG.on || ev.pointerId !== DRAG.pointerId) return;
+  var target = dropTargetAt(ev.clientX, ev.clientY);
+  var id = DRAG.id, from = DRAG.from;
+  endDrag();
+
+  if (!DRAG.moved) return tap(id, from);          // ほぼ動いていなければクリック扱い
+  if (!target) return;                             // どこにも落とさなかった → 何もしない
+  if (target.classList.contains('msk-slot')) placeInSlot(id, from, Number(target.dataset.slot));
+  else returnToTray(id, from);
+}
+
+/** クリック（タップ）: 選択肢なら空いている先頭の行へ、黒板の上なら選択肢へ戻す */
+function tap(id, from) {
+  if (from.kind === 'slot') return returnToTray(id, from);
+  var empty = APP.slots.indexOf(0);
+  if (empty < 0) return;
+  placeInSlot(id, from, empty);
+}
+
+boot();
+</script>
+
+</body>
+</html>
