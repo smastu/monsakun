@@ -435,6 +435,15 @@ var API = (function () {
     login: function (idToken) { return post({ action: 'login', idToken: idToken }); },
     resume: function (session) { return post({ action: 'resume', session: session }); },
     log: function (session, events) { return post({ action: 'log', session: session, events: events }); },
+    // 教員用
+    tasksLoad: function (session) { return post({ action: 'tasks.load', session: session }); },
+    tasksSave: function (session, tasks, baseVersion) {
+      return post({ action: 'tasks.save', session: session, tasks: tasks, baseVersion: baseVersion });
+    },
+    logsIndex: function (session) { return post({ action: 'logs.index', session: session }); },
+    logsCsv: function (session, date, columns, withEmail) {
+      return post({ action: 'logs.csv', session: session, date: date, columns: columns, withEmail: withEmail });
+    },
   };
 })();
 </script>
@@ -821,7 +830,26 @@ var APP = {
 // ---------------------------------------------------------------------------
 // 端末に残す情報（未送信のログ・クリア済みの課題・試行回数）。読めなくても動くようにする。
 // ---------------------------------------------------------------------------
-function storeKey(name) { return 'monsakun:' + (APP.info ? APP.info.userId : 'anon') + ':' + name; }
+function storeKey(name) {
+  // 正解済みの課題と試行回数は課題セットごとに分ける（教員が課題を作り直すと、同じ番号でも別の課題になるため）
+  var perSet = name === 'cleared' || name === 'trial' ? ':' + taskSetId() : '';
+  return 'monsakun:' + (APP.info ? APP.info.userId : 'anon') + ':' + name + perSet;
+}
+
+/** いま使っている課題セットの版。教員が保存していなければ 'default'（画面に組み込んだ 48 課題） */
+function taskSetId() { return (APP.info && APP.info.tasksVersion) || 'default'; }
+
+/** いま使っている課題（教員の課題セットがあればそれ、無ければ既定の 48 課題） */
+function allTasks() { return (APP.info && APP.info.tasks && APP.info.tasks.length) ? APP.info.tasks : MSK_TASKS.tasks; }
+
+/** 出すレベル：課題セットにあるレベルのうち、CONFIG.LEVELS が空でなければそれに含まれるもの */
+function levelsToShow() {
+  var have = [];
+  allTasks().forEach(function (t) { if (have.indexOf(t.lv) < 0) have.push(t.lv); });
+  have.sort(function (a, b) { return a - b; });
+  var only = (APP.info && APP.info.levels) || [];
+  return only.length ? have.filter(function (lv) { return only.indexOf(lv) >= 0; }) : have;
+}
 function load(name, fallback) {
   try { var s = localStorage.getItem(storeKey(name)); return s ? JSON.parse(s) : fallback; }
   catch (e) { return fallback; }
@@ -929,7 +957,7 @@ function showError(msg) {
 // レベル選択
 // ---------------------------------------------------------------------------
 function tasksOfLevel(lv) {
-  return MSK_TASKS.tasks.filter(function (t) { return t.lv === lv; })
+  return allTasks().filter(function (t) { return t.lv === lv; })
     .sort(function (a, b) { return a.asg - b.asg; });
 }
 
@@ -937,7 +965,7 @@ function showHome() {
   var cleared = load('cleared', {});
   var box = $('#levels');
   box.innerHTML = '';
-  APP.info.levels.forEach(function (lv) {
+  levelsToShow().forEach(function (lv) {
     var list = tasksOfLevel(lv);
     var n = list.filter(function (t) { return cleared[t.lvAsg]; }).length;
     box.appendChild(el('button', {
@@ -1043,6 +1071,7 @@ function emit(ope1, o) {
   ev.check = o.check !== undefined ? o.check : (t ? APP.checks : 0);
   ev.trial = o.trial !== undefined ? o.trial : (t ? APP.trial : 'NA');
   ev.card_text = cardObj ? cardObj.text : '';
+  ev.task_set = taskSetId();
   if (ope1 !== 'CHECK') ev.reason = '';   // 不充足の理由は答え合わせの行にだけ残す
   if (ope1 === 'PROB_END') {
     // 実機の PROB_END 行のフラグ列には意味の確定しない集計値が入っているので、再現せず空欄にする

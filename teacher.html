@@ -1,0 +1,1171 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>モンサクン 教員用</title>
+<style>
+/* 教員用ページの見た目。作問画面とは別の、事務作業向けの落ち着いた配色。 */
+:root {
+  --bg: #f4f1e6; --panel: #fffdf6; --ink: #1f1d17; --muted: #6b665a; --line: #d9d2bd;
+  --accent: #b4561f; --accent-ink: #fff; --ok: #1d7a46; --warn: #a86a00; --ng: #b3261e; --sel: #fbe9c8;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.5 "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif; }
+[hidden] { display: none !important; }
+button { font: inherit; padding: 6px 12px; border: 1px solid var(--line); background: #fff; border-radius: 6px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.danger { color: var(--ng); }
+button.link { border: none; background: none; color: var(--accent); padding: 0 4px; text-decoration: underline; }
+input, select, textarea { font: inherit; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: #fff; min-width: 0; }
+textarea { width: 100%; resize: vertical; }
+
+.bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 10px 16px; background: #2c2a24; color: #f4f1e6; }
+.bar h1 { margin: 0; font-size: 18px; }
+.bar h1 span { font-size: 13px; font-weight: normal; opacity: .8; margin-left: 4px; }
+.tabs { display: flex; gap: 4px; }
+.tabs button { background: transparent; color: #f4f1e6; border-color: #6b665a; }
+.tabs button.on { background: #f4f1e6; color: #2c2a24; }
+.who { margin-left: auto; font-size: 12px; opacity: .9; }
+.who .link { color: #ffd59a; }
+
+main { padding: 16px; max-width: 1400px; margin: 0 auto; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+.narrow { max-width: 480px; margin: 40px auto; text-align: center; }
+.gbtn { display: flex; justify-content: center; margin: 18px 0 8px; min-height: 44px; }
+.note { color: var(--muted); font-size: 13px; margin: 4px 0; }
+.msg { min-height: 1.4em; color: var(--ng); }
+h2 { font-size: 16px; margin: 0 0 8px; }
+h3 { font-size: 14px; margin: 16px 0 6px; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.state b { color: var(--accent); }
+.state .dirty { color: var(--warn); font-weight: bold; margin-left: 8px; }
+
+.cols { display: grid; grid-template-columns: 300px 1fr; gap: 12px; align-items: start; }
+.list { max-height: calc(100vh - 190px); overflow: auto; padding: 8px; }
+.list h4 { margin: 10px 4px 4px; font-size: 13px; color: var(--muted); }
+.item { display: grid; grid-template-columns: 44px 1fr 18px; gap: 6px; align-items: center; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.item:hover { background: #f5efdd; }
+.item.on { background: var(--sel); }
+.item .no { font-weight: bold; }
+.item .sum { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mark-ok { color: var(--ok); } .mark-warn { color: var(--warn); } .mark-ng { color: var(--ng); }
+
+.editor .row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 6px 0; }
+.editor label { display: inline-flex; gap: 6px; align-items: center; }
+.editor input.n { width: 56px; text-align: center; }
+.editor input.w { width: 120px; }
+.req-preview { border: 3px solid #000; background: #fff; padding: 8px 12px; font-weight: bold; white-space: pre-line; max-width: 420px; }
+.cards { width: 100%; border-collapse: collapse; margin-top: 4px; }
+.cards th, .cards td { border-bottom: 1px solid var(--line); padding: 6px 4px; vertical-align: top; text-align: left; }
+.cards th { font-size: 12px; color: var(--muted); font-weight: normal; }
+.cards td.attrs { display: flex; flex-wrap: wrap; gap: 4px; }
+.cards td.attrs input { width: 96px; }
+.cards td.attrs input.n { width: 48px; }
+.cards td.attrs input.u { width: 52px; }
+.cards td.txt { min-width: 200px; }
+.cards td.txt textarea { min-height: 38px; }
+.cards .ops { white-space: nowrap; }
+.cards .ops button { padding: 2px 6px; }
+.check { margin-top: 12px; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--line); background: #fff; }
+.check.ok { border-color: var(--ok); }
+.check.ng { border-color: var(--ng); }
+.check ul { margin: 4px 0 0; padding-left: 20px; }
+.check .ng li { color: var(--ng); }
+.check .warn li { color: var(--warn); }
+.editor .foot { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+
+.opts { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 10px 0; }
+.days { border-collapse: collapse; margin: 8px 0 12px; min-width: 320px; }
+.days th, .days td { border-bottom: 1px solid var(--line); padding: 6px 12px; text-align: left; }
+.days td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.toast { position: fixed; right: 16px; bottom: 16px; background: #2c2a24; color: #fff; padding: 10px 14px; border-radius: 6px; z-index: 10; max-width: 420px; }
+
+@media (max-width: 860px) {
+  .cols { grid-template-columns: 1fr; }
+  .list { max-height: 260px; }
+  .cards thead { display: none; }
+  .cards tr { display: grid; grid-template-columns: 1fr; border-bottom: 2px solid var(--line); }
+  .cards td { border: none; }
+}
+</style>
+
+</head>
+<body>
+
+<header class="bar">
+  <h1>モンサクン <span>教員用</span></h1>
+  <nav class="tabs" id="tabs" hidden>
+    <button data-tab="tasks" class="on">課題をつくる</button>
+    <button data-tab="logs">ログを書き出す</button>
+  </nav>
+  <div class="who"><span id="who"></span> <button id="logout" class="link" hidden>ログアウト</button></div>
+</header>
+
+<main>
+  <!-- ログイン -->
+  <section id="login" class="panel narrow" hidden>
+    <h2>教員の Google アカウントでログイン</h2>
+    <p class="note">Config.js の TEACHERS に登録したアカウントだけが使えます。</p>
+    <div id="gbtn" class="gbtn"></div>
+    <p id="loginmsg" class="msg"></p>
+  </section>
+
+  <!-- 課題をつくる -->
+  <section id="tasks" hidden>
+    <div class="toolbar panel">
+      <div class="state" id="state"></div>
+      <div class="buttons">
+        <button id="import">既定の 48 課題を取り込む</button>
+        <button id="add">＋ 新しい課題</button>
+        <button id="save" class="primary">保存する</button>
+        <button id="reset" class="danger">課題セットを消す</button>
+      </div>
+    </div>
+    <div class="cols">
+      <aside class="panel list" id="list"></aside>
+      <div class="panel editor" id="editor">
+        <p class="note">左の一覧から課題を選ぶか、「＋ 新しい課題」で作ります。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ログを書き出す -->
+  <section id="logs" class="panel" hidden>
+    <h2>ログを CSV で書き出す</h2>
+    <p class="note">日ごとのログファイルから選んだ日を 1 つの CSV にまとめます（Excel で開けるよう BOM 付き UTF-8）。</p>
+    <div class="opts">
+      <label><input type="radio" name="cols" value="all" checked> 全列（43 列）</label>
+      <label><input type="radio" name="cols" value="raw"> 寺西小 2020 生ログと同じ 32 列</label>
+      <label><input type="checkbox" id="withEmail"> 名簿のメールアドレスを付ける</label>
+    </div>
+    <table class="days">
+      <thead><tr><th><input type="checkbox" id="allDays"></th><th>日付</th><th>行数</th></tr></thead>
+      <tbody id="days"></tbody>
+    </table>
+    <div class="buttons">
+      <button id="reloadDays">一覧を読み直す</button>
+      <button id="download" class="primary">CSV をダウンロード</button>
+    </div>
+    <p id="logmsg" class="msg"></p>
+  </section>
+</main>
+
+<div id="toast" class="toast" hidden></div>
+
+<script>
+var MSK_CONFIG = {"endpoint":"https://script.google.com/macros/s/AKfycbzsHs94piwace25VFsCvFAM5hkzCAqvWPUX6IFAEb3sv2-WZgCu-FRErx0XXE7LxDF7/exec","clientId":"616831545005-lv59s1dh24tifmh1us28ai7klmpsfs5i.apps.googleusercontent.com"};
+</script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+/*
+ * GAS（ログ受信用ウェブアプリ）との通信。
+ *
+ * Content-Type を text/plain にして「単純なリクエスト」にする。application/json にすると
+ * ブラウザが事前確認（OPTIONS）を送り、GAS はそれに答えられないので失敗する。
+ * GAS の応答は script.googleusercontent.com への転送を経て返り、こちらはそれをそのまま読む。
+ */
+var API = (function () {
+  function post(body) {
+    return fetch(MSK_CONFIG.endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(body),
+    }).then(function (r) {
+      if (!r.ok) throw new Error('通信エラー（HTTP ' + r.status + '）');
+      return r.json();
+    }).then(function (j) {
+      if (!j.ok) {
+        var err = new Error(j.error || 'エラー');
+        err.code = j.code;
+        throw err;
+      }
+      return j;
+    });
+  }
+  return {
+    login: function (idToken) { return post({ action: 'login', idToken: idToken }); },
+    resume: function (session) { return post({ action: 'resume', session: session }); },
+    log: function (session, events) { return post({ action: 'log', session: session, events: events }); },
+    // 教員用
+    tasksLoad: function (session) { return post({ action: 'tasks.load', session: session }); },
+    tasksSave: function (session, tasks, baseVersion) {
+      return post({ action: 'tasks.save', session: session, tasks: tasks, baseVersion: baseVersion });
+    },
+    logsIndex: function (session) { return post({ action: 'logs.index', session: session }); },
+    logsCsv: function (session, date, columns, withEmail) {
+      return post({ action: 'logs.csv', session: session, date: date, columns: columns, withEmail: withEmail });
+    },
+  };
+})();
+</script>
+
+<!-- 自動生成：GAS/tools/build_gas.js が demo_bn_support/src/constraints.js から作る。手で編集しない。 -->
+<script>
+var MSK = (function () {
+  var module = { exports: {} };
+'use strict';
+/**
+ * モンサクン 5 制約（C.S / N.S / SS.S / ST.S / O.S）の判定エンジン。
+ *
+ * 制約の呼称は data/00_元データ/README.md と CLAUDE.md の canonical 定義に従う。
+ *
+ *   SS.S 文構造制約       : 存在文 2 枚 ＋ 関係文 1 枚という構成が成立しているか
+ *   ST.S 物語制約         : 関係文の種類が課題の指定する物語と対応しているか（SS.S に依存）
+ *   O.S  オブジェクト制約 : 参照対象が規則に従うか（合併・比較 = 別物 / 増加・減少 = 同物）
+ *   N.S  数理制約         : 出題が指定した数字を実際に使っているか
+ *                          （Lv1 だけは緩く，置いた 3 枚の数が算術的に整合していれば充足）
+ *   C.S  数式制約         : 物語が表す数量関係が作問条件の式と一致するか（N.S に依存）
+ *
+ * 判定規則は「正解カードなら満たす」だけでなく、**実践で使われた実システムが記録した
+ * フラグを再現する** ことを目標に決めてある。各規則の細部（O.S を SS.S と独立に評価する、
+ * 文順序の要求を ST.S ではなく C.S に置く、Lv1 の N.S だけ緩い、など）は
+ * 寺西小 2020 実践の CHECK イベント 63,603 件と突き合わせて決定した。
+ * 一致率は `node tools/validate.js` で再現できる。
+ */
+
+const STORY_LABEL = {
+  combine: 'あわせて（合併）',
+  increase: 'ふえると（増加）',
+  decrease: 'のこりは（減少）',
+  compare: 'ちがいは（比較）',
+};
+
+/** 物語タイプが導く数量関係の形（加算形か減算形か） */
+const STORY_FORM = { combine: '+', increase: '+', decrease: '-', compare: '-' };
+
+const FLAGS = ['SS.S', 'ST.S', 'O.S', 'N.S', 'C.S'];
+
+const DEFAULT_OPTS = {
+  // N.S の規則。'hybrid' が実ログと最もよく一致する（Lv1 のみ緩い）。
+  //   'strict'  … 作問条件で指定された数値をそのまま使っているか
+  //   'lenient' … 未知数 1 つを含む算術的に成立する数の組か
+  //   'hybrid'  … Lv1 は lenient、Lv2・Lv3 は strict
+  nsRule: 'hybrid',
+};
+
+// ---------------------------------------------------------------------------
+// 補助
+// ---------------------------------------------------------------------------
+
+/** カードが言及するオブジェクトの一覧 */
+function cardObjects(c) {
+  if (!c) return [];
+  if (c.kind === 'exist') return [c.obj];
+  if (c.rel === 'combine') return c.objs.slice();
+  if (c.rel === 'compare') return [c.subj, c.ref];
+  return [c.obj]; // increase / decrease
+}
+
+function sameMultiset(a, b) {
+  if (a.length !== b.length) return false;
+  const x = a.slice().sort();
+  const y = b.slice().sort();
+  return x.every((v, i) => v === y[i]);
+}
+
+/**
+ * 置かれた 3 枚から物語の数量関係を復元する。
+ * 返り値 { form, x, y, z, rel } は「x form y = z」を意味する。
+ *   合併 : 部分 + 部分 = 全体
+ *   増加 : 変化前 + 増加量 = 変化後
+ *   減少 : 変化前 - 減少量 = 変化後
+ *   比較 : 多い方 - 少ない方 = 差
+ * 増加・減少では、存在文のうちスロット順で先にある方を「変化前」とみなす。
+ * 復元できない場合は null。
+ */
+function storyEquation(cards, slots) {
+  const placed = slots.map((id) => (id ? cards[id - 1] : null));
+  if (placed.some((c) => !c)) return null;
+  const rels = placed.filter((c) => c.kind === 'rel');
+  const eOrder = placed.filter((c) => c.kind === 'exist');
+  if (rels.length !== 1 || eOrder.length !== 2) return null;
+  const rel = rels[0];
+
+  if (rel.rel === 'combine') {
+    return { form: '+', x: eOrder[0].num, y: eOrder[1].num, z: rel.num, rel: 'combine',
+             roles: { part1: eOrder[0], part2: eOrder[1], total: rel } };
+  }
+  if (rel.rel === 'increase') {
+    return { form: '+', x: eOrder[0].num, y: rel.num, z: eOrder[1].num, rel: 'increase',
+             roles: { before: eOrder[0], change: rel, after: eOrder[1] } };
+  }
+  if (rel.rel === 'decrease') {
+    return { form: '-', x: eOrder[0].num, y: rel.num, z: eOrder[1].num, rel: 'decrease',
+             roles: { before: eOrder[0], change: rel, after: eOrder[1] } };
+  }
+  if (rel.rel === 'compare') {
+    // 「A は B より D おおい」→ A が多い方。「A は B より D すくない」→ B が多い方。
+    const bigObj = rel.dir === 'more' ? rel.subj : rel.ref;
+    const smallObj = rel.dir === 'more' ? rel.ref : rel.subj;
+    const big = eOrder.find((c) => c.obj === bigObj);
+    const small = eOrder.find((c) => c.obj === smallObj);
+    if (!big || !small || big === small) return null; // 参照先の存在文が置かれていない
+    return { form: '-', x: big.num, y: small.num, z: rel.num, rel: 'compare',
+             roles: { larger: big, smaller: small, diff: rel } };
+  }
+  return null;
+}
+
+/**
+ * 3 つの数量からなる加法的関係の正準形。
+ *
+ * 「x + y = z」も「x - y = z」も、結局は「全体 = 部分 + 部分」という 1 つの関係である。
+ * 差の書き方は一意ではない（8-2=6 と 8-6=2 は同じ関係）ので、
+ *   加算形 x + y = z → { whole: z, parts: [x, y] }
+ *   減算形 x - y = z → { whole: x, parts: [y, z] }
+ * に畳んでから比較する。これにより「2+7=?」と「2+?=7」は別物として区別しつつ、
+ * 「?-6=2」と「?-2=6」は同じ関係として同一視できる。
+ *
+ * Why: 原データの作問条件では比較（ちがいは）の課題で差の書き方が揺れている
+ * （Lv2 番号10 は「6-?=4」＝全体-部分、Lv2 番号12 は「?-6=2」＝全体-差）。
+ * 表層の式で照合すると Lv2 番号12・Lv3 番号4 の正解が誤判定される。
+ */
+function canonical(form, x, y, z) {
+  return form === '+'
+    ? { whole: z, parts: [x, y].sort() }
+    : { whole: x, parts: [y, z].sort() };
+}
+
+function sameRelation(r1, r2) {
+  if (!r1 || !r2) return false;
+  return r1.whole === r2.whole && sameMultiset(r1.parts, r2.parts);
+}
+
+/** 作問条件を正準形にする */
+function requirementRelation(req) {
+  if (req.mode === 'relation') return canonical(req.op, req.a, req.b, req.r);
+  // 計算式条件: 未知数 ? を「a op b」で求める、という指定
+  return req.op === '+'
+    ? { whole: '?', parts: [req.a, req.b].sort() }
+    : { whole: req.a, parts: [req.b, '?'].sort() };
+}
+
+/** 作問条件が要求する数値の組 */
+function requiredNumbers(req) {
+  return req.mode === 'relation' ? [req.a, req.b, req.r] : [req.a, req.b, '?'];
+}
+
+/** 未知数を 1 つ含むか、あるいは 3 数が「全体 = 部分 + 部分」を満たすか */
+function arithmeticallyWellFormed(nums) {
+  const q = nums.filter((n) => n === '?').length;
+  if (q === 1) return true;           // 未知数がひとつ → 値を定めれば必ず成立する
+  if (q > 1) return false;            // 未知数が 2 つ以上 → 数式が定まらない
+  const d = nums.map(Number);
+  return d[0] === d[1] + d[2] || d[1] === d[0] + d[2] || d[2] === d[0] + d[1];
+}
+
+// ---------------------------------------------------------------------------
+// 本体
+// ---------------------------------------------------------------------------
+
+/**
+ * @param {object} task    tasks.json の 1 課題
+ * @param {number[]} slots 長さ 3。0 = 空、1..N = カード番号
+ * @returns {{complete, flags, allSatisfied, reasons, equation}}
+ */
+function evaluate(task, slots, opts) {
+  const o = Object.assign({}, DEFAULT_OPTS, opts || {});
+  const cards = task.cards;
+  const req = task.requirement;
+  const flags = { 'SS.S': 0, 'ST.S': 0, 'O.S': 0, 'N.S': 0, 'C.S': 0 };
+  const reasons = {};
+  const complete = slots.every((s) => s > 0);
+  if (!complete) {
+    reasons.incomplete = 'カードが 3 枚そろっていない';
+    return { complete: false, flags, allSatisfied: false, reasons, equation: null };
+  }
+
+  const placed = slots.map((id) => cards[id - 1]);
+  const rels = placed.filter((c) => c.kind === 'rel');
+  const exists = placed.filter((c) => c.kind === 'exist');
+  const rel = rels.length === 1 ? rels[0] : null;
+  const relSlot = placed.findIndex((c) => c.kind === 'rel');
+
+  // --- SS.S 文構造制約 -----------------------------------------------------
+  if (exists.length === 2 && rels.length === 1) {
+    flags['SS.S'] = 1;
+  } else {
+    reasons['SS.S'] = `存在文 ${exists.length} 枚・関係文 ${rels.length} 枚になっている`
+      + '（お話は「存在文 2 枚 ＋ 関係文 1 枚」で作る）';
+  }
+
+  // --- ST.S 物語制約（SS.S に依存） ---------------------------------------
+  if (flags['SS.S']) {
+    if (rel.rel === task.story) flags['ST.S'] = 1;
+    else reasons['ST.S'] = `作ったお話は「${STORY_LABEL[rel.rel]}」だが、`
+      + `課題が求めているのは「${STORY_LABEL[task.story]}」`;
+  } else {
+    reasons['ST.S'] = '文構造が成立していないので、お話の種類を判定できない';
+  }
+
+  // --- O.S オブジェクト制約 ------------------------------------------------
+  // 実システムは SS.S とは独立に評価している（関係文の種類が「同物型」か「別物型」かで
+  // 規則が決まり、関係文が無いときは 3 枚が同じものを指すかで判定する）。
+  const eObjs = exists.map((c) => c.obj);
+  if (rels.length === 1 && exists.length === 2) {
+    const rObjs = Array.from(new Set(cardObjects(rel)));
+    if (rel.rel === 'combine' || rel.rel === 'compare') {
+      if (eObjs[0] === eObjs[1]) {
+        reasons['O.S'] = `「${STORY_LABEL[rel.rel]}」のお話では、2 つの存在文は別のものでなければならない`;
+      } else if (!sameMultiset(rObjs.slice().sort(), eObjs.slice().sort())) {
+        reasons['O.S'] = '関係文が指しているものと、存在文に出てくるものが食い違っている';
+      } else {
+        flags['O.S'] = 1;
+      }
+    } else {
+      if (eObjs[0] === eObjs[1] && rObjs.every((x) => x === eObjs[0])) flags['O.S'] = 1;
+      else reasons['O.S'] = `「${STORY_LABEL[rel.rel]}」のお話では、3 枚とも同じものの話でなければならない`;
+    }
+  } else if (rels.length === 0) {
+    const all = placed.map((c) => c.obj);
+    if (all.every((x) => x === all[0])) flags['O.S'] = 1;
+    else reasons['O.S'] = '出てくるものがそろっていない';
+  } else {
+    reasons['O.S'] = '関係文が 2 枚以上あり、何と何を比べているのか定まらない';
+  }
+
+  // --- N.S 数理制約 --------------------------------------------------------
+  const used = placed.map((c) => c.num);
+  const need = requiredNumbers(req);
+  const strict = sameMultiset(used, need);
+  const lenient = arithmeticallyWellFormed(used);
+  const useLenient = o.nsRule === 'lenient' || (o.nsRule === 'hybrid' && task.lv === 1);
+  if (useLenient ? lenient : strict) {
+    flags['N.S'] = 1;
+  } else {
+    reasons['N.S'] = useLenient
+      ? `使った数 {${used.join(', ')}} では算数の式が作れない`
+      : `使った数は {${used.join(', ')}}。作問条件が求めているのは {${need.join(', ')}}`;
+  }
+
+  // --- C.S 数式制約 --------------------------------------------------------
+  // 3 条件の連言:
+  //   (1) お話の種類が導く演算（たし算／ひき算）が課題のそれと一致する
+  //   (2) 文順序制約のある課題（増加・減少）では関係文が中央のスロットにある
+  //   (3) お話が表す数量関係（正準形）が作問条件のそれと一致する
+  const eq = storyEquation(cards, slots);
+  const posOk = task.order !== 1 || relSlot === 1;
+  if (!eq) {
+    reasons['C.S'] = 'お話から数量の関係を読み取れない';
+  } else if (eq.form !== STORY_FORM[task.story]) {
+    reasons['C.S'] = `課題は${STORY_FORM[task.story] === '+' ? 'たし算' : 'ひき算'}`
+      + `のお話を求めているが、作ったお話は${eq.form === '+' ? 'たし算' : 'ひき算'}になっている`;
+  } else if (!posOk) {
+    reasons['C.S'] = '「変化前 → 変化 → 変化後」の順に並べる必要がある（関係文はまん中）';
+  } else {
+    const got = canonical(eq.form, eq.x, eq.y, eq.z);
+    const want = requirementRelation(req);
+    if (sameRelation(got, want)) {
+      flags['C.S'] = 1;
+    } else {
+      const shown = req.mode === 'relation'
+        ? `「${req.a} ${req.op} ${req.b} = ${req.r}」`
+        : `「${req.a} ${req.op} ${req.b}」で求められる関係`;
+      reasons['C.S'] = `作ったお話が表す式は「${eq.x} ${eq.form} ${eq.y} = ${eq.z}」`
+        + `（全体 ${got.whole}、部分 ${got.parts.join(' と ')}）。作問条件は ${shown}`;
+    }
+  }
+
+  const allSatisfied = FLAGS.every((f) => flags[f] === 1);
+  return { complete: true, flags, allSatisfied, reasons, equation: eq };
+}
+
+module.exports = {
+  evaluate, FLAGS, STORY_LABEL, STORY_FORM, storyEquation, cardObjects,
+  canonical, requirementRelation, requiredNumbers, DEFAULT_OPTS,
+};
+
+  return module.exports;
+})();
+</script>
+
+<!-- 自動生成：GAS/tools/build_gas.js が demo_bn_support/data/tasks.json から作る。手で編集しない。 -->
+<script>
+var MSK_TASKS = {"source":"data\\01_問題データ\\01 寺西小学校実践用作問課題.xlsx","tasks":[{"lv":1,"asg":1,"lvAsg":101,"requirement":{"mode":"relation","op":"+","a":"2","b":"7","r":"?","story":"combine","text":"「2+7=?」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「2+7=?」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"forward","expression":"story","tutorial":true,"cards":[{"kind":"exist","obj":"しろいいぬ","num":"2","pred":"います","text":"しろいいぬが2ひきいます","display":"しろいいぬ が 2ひき います","id":1},{"kind":"exist","obj":"くろいいぬ","num":"7","pred":"います","text":"くろいいぬが7ひきいます","display":"くろいいぬ が 7ひき います","id":2},{"kind":"rel","rel":"combine","objs":["しろいいぬ","くろいいぬ"],"num":"?","text":"しろいいぬとくろいいぬはあわせて?ひきいます","display":"しろいいぬ と くろいいぬ は あわせて ? ひきいます","id":3}],"note":""},{"lv":1,"asg":2,"lvAsg":102,"requirement":{"mode":"relation","op":"+","a":"4","b":"3","r":"?","story":"combine","text":"「4+3=?」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「4+3=?」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"赤い花","num":"4","pred":"さいています","text":"赤い花が4本さいています","display":"赤い花 が 4本 さいています","id":1},{"kind":"exist","obj":"きいろい花","num":"3","pred":"さいています","text":"きいろい花が3本さいています","display":"きいろい花 が 3本 さいています","id":2},{"kind":"rel","rel":"combine","objs":["赤い花","きいろい花"],"num":"?","text":"赤い花ときいろい花がぜんぶで?本さいています","display":"赤い花 と きいろい花 が\nぜんぶで?本 さいています","id":3},{"kind":"exist","obj":"赤い花","num":"7","pred":"さいています","text":"赤い花が7本さいています","display":"赤い花 が 7本 さいています","id":4},{"kind":"rel","rel":"combine","objs":["赤い花","きいろい花"],"num":"4","text":"赤い花ときいろい花がぜんぶで4本さいています","display":"赤い花 と きいろい花 が\nぜんぶで4本 さいています","id":5}],"note":""},{"lv":1,"asg":3,"lvAsg":103,"requirement":{"mode":"relation","op":"+","a":"3","b":"5","r":"?","story":"combine","text":"「3+5=?」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「3+5=?」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"きいろいふうせん","num":"3","pred":"あります","text":"きいろいふうせんが3こあります","display":"きいろいふうせん が 3こあります","id":1},{"kind":"exist","obj":"青いふうせん","num":"5","pred":"あります","text":"青いふうせんが5こあります","display":"青いふうせん が 5こあります","id":2},{"kind":"rel","rel":"combine","objs":["きいろいふうせん","青いふうせん"],"num":"?","text":"きいろいふうせんと青いふうせんがあわせて?こあります","display":"きいろいふうせん と 青いふうせんが\nあわせて ?こ あります","id":3},{"kind":"exist","obj":"青いふうせん","num":"?","pred":"あります","text":"青いふうせんが?こあります","display":"青いふうせん が ?こ あります","id":4},{"kind":"rel","rel":"combine","objs":["きいろいふうせん","青いふうせん"],"num":"5","text":"きいろいふうせんと青いふうせんがあわせて5こあります","display":"きいろいふうせん と 青いふうせん が\nあわせて 5こ あります","id":5},{"kind":"exist","obj":"赤いふうせん","num":"3","pred":"あります","text":"赤いふうせんが3こあります","display":"赤いふうせん が 3こ あります","id":6}],"note":""},{"lv":1,"asg":4,"lvAsg":104,"requirement":{"mode":"relation","op":"+","a":"4","b":"5","r":"?","story":"combine","text":"「4+5=?」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「4+5=?」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"男の子","num":"4","pred":"います","text":"男の子が4人います","display":"男の子 が 4人 います","id":1},{"kind":"exist","obj":"女の子","num":"5","pred":"います","text":"女の子が5人います","display":"女の子 が 5人 います","id":2},{"kind":"rel","rel":"combine","objs":["男の子","女の子"],"num":"?","text":"男の子と女の子はみんなで?人です","display":"男の子 と 女の子 は\nみんなで ?人 です","id":3},{"kind":"exist","obj":"男の子","num":"?","pred":"います","text":"男の子が?人います","display":"男の子 が ?人 います","id":4},{"kind":"rel","rel":"compare","subj":"女の子","ref":"男の子","num":"?","dir":"more","text":"女の子は男の子より?人おおいです","display":"女の子は男の子より\n?人おおいです","id":5}],"note":""},{"lv":1,"asg":5,"lvAsg":105,"requirement":{"mode":"relation","op":"+","a":"1","b":"5","r":"?","story":"increase","text":"「1+5=?」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「1+5=?」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"forward","expression":"story","tutorial":true,"cards":[{"kind":"exist","obj":"すずめ","num":"1","pred":"います","text":"すずめが1わいます","display":"すずめ が 1わ います","id":1},{"kind":"rel","rel":"increase","obj":"すずめ","num":"5","verb":"ふえました","text":"すずめが5わふえました","display":"すずめ が 5わ ふえました","id":2},{"kind":"exist","obj":"すずめ","num":"?","pred":"います","text":"すずめが?わいます","display":"すずめ が ?わ います","id":3}],"note":""},{"lv":1,"asg":6,"lvAsg":106,"requirement":{"mode":"relation","op":"+","a":"2","b":"3","r":"?","story":"increase","text":"「2+3=?」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「2+3=?」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"くるま","num":"2","pred":"あります","text":"くるまが2だいあります","display":"くるま が 2だい あります","id":1},{"kind":"rel","rel":"increase","obj":"くるま","num":"3","verb":"ふえました","text":"くるまが3だいふえました","display":"くるま が 3だい ふえました","id":2},{"kind":"exist","obj":"くるま","num":"?","pred":"あります","text":"くるまが?だいあります","display":"くるま が ?だい あります","id":3},{"kind":"exist","obj":"くるま","num":"3","pred":"あります","text":"くるまが3だいあります","display":"くるま が 3だい あります","id":4},{"kind":"rel","rel":"increase","obj":"くるま","num":"5","verb":"ふえました","text":"くるまが5だいふえました","display":"くるまが5だいふえました","id":5}],"note":""},{"lv":1,"asg":7,"lvAsg":107,"requirement":{"mode":"relation","op":"+","a":"6","b":"1","r":"?","story":"increase","text":"「6+1=?」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「6+1=?」でけいさんできる「ふえるといくつ」のおはなしをつくろう"},"story":"increase","order":1,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"チューリップ","num":"6","pred":"さいています","text":"チューリップが6本さいています","display":"チューリップ が 6 本 さいています","id":1},{"kind":"rel","rel":"increase","obj":"チューリップ","num":"1","verb":"さきました","text":"チューリップが1本さきました","display":"チューリップ が 1 本 さきました","id":2},{"kind":"exist","obj":"チューリップ","num":"?","pred":"さいています","text":"チューリップが?本さいています","display":"チューリップ が ?本 さいています","id":3},{"kind":"exist","obj":"チューリップ","num":"1","pred":"さいています","text":"チューリップが1本さいています","display":"チューリップ が 1 本 さいています","id":4},{"kind":"rel","rel":"increase","obj":"チューリップ","num":"?","verb":"さきました","text":"チューリップが?本さきました","display":"チューリップ が ?本 さきました","id":5},{"kind":"exist","obj":"バラ","num":"6","pred":"さいています","text":"バラが6本さいています","display":"バラが 6 本 さいています","id":6}],"note":"述語の使い方が不適切かも？"},{"lv":1,"asg":8,"lvAsg":108,"requirement":{"mode":"relation","op":"+","a":"3","b":"6","r":"?","story":"increase","text":"「3+6=?」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「3+6=?」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"カード","num":"3","pred":"もっています","text":"カードを3まいもっています","display":"カード を 3まい もっています","id":1},{"kind":"rel","rel":"increase","obj":"カード","num":"6","verb":"もらいました","text":"カードを6まいもらいました","display":"カード を 6まい もらいました","id":2},{"kind":"exist","obj":"カード","num":"?","pred":"もっています","text":"カードを?まいもっています","display":"カード を ?まい もっています","id":3},{"kind":"exist","obj":"カード","num":"6","pred":"もっています","text":"カードを6まいもっています","display":"カード を 6まい もっています","id":4},{"kind":"rel","rel":"decrease","obj":"カード","num":"6","verb":"あげました","text":"カードを6まいあげました","display":"カード を 6まい あげました","id":5}],"note":""},{"lv":1,"asg":9,"lvAsg":109,"requirement":{"mode":"relation","op":"-","a":"5","b":"3","r":"?","story":"decrease","text":"「5-3=?」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「5-3=?」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"forward","expression":"story","tutorial":true,"cards":[{"kind":"exist","obj":"さくらんぼ","num":"5","pred":"あります","text":"さくらんぼが5こあります","display":"さくらんぼ が 5こ あります","id":1},{"kind":"rel","rel":"decrease","obj":"さくらんぼ","num":"3","verb":"たべました","text":"さくらんぼを3こたべました","display":"さくらんぼ を 3こ たべました","id":2},{"kind":"exist","obj":"さくらんぼ","num":"?","pred":"あります","text":"さくらんぼが?こあります","display":"さくらんぼ が ?こ あります","id":3}],"note":""},{"lv":1,"asg":10,"lvAsg":110,"requirement":{"mode":"relation","op":"-","a":"9","b":"8","r":"?","story":"decrease","text":"「9-8=?」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「9-8=?」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"たまご","num":"9","pred":"あります","text":"たまごが9こあります","display":"たまご が 9こ あります","id":1},{"kind":"rel","rel":"decrease","obj":"たまご","num":"8","verb":"つかいました","text":"たまごを8こつかいました","display":"たまご を 8こ つかいました","id":2},{"kind":"exist","obj":"たまご","num":"?","pred":"あります","text":"たまごが?こあります","display":"たまご が ?こ あります","id":3},{"kind":"exist","obj":"たまご","num":"8","pred":"あります","text":"たまごが8こあります","display":"たまご が 8こ あります","id":4},{"kind":"rel","rel":"decrease","obj":"たまご","num":"9","verb":"つかいました","text":"たまごを9こつかいました","display":"たまご を 9こ つかいました","id":5}],"note":""},{"lv":1,"asg":11,"lvAsg":111,"requirement":{"mode":"relation","op":"-","a":"7","b":"2","r":"?","story":"decrease","text":"「7-2=?」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「7ー2=?」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"おかし","num":"7","pred":"あります","text":"おかしが7こあります","display":"おかし が 7こ あります","id":1},{"kind":"rel","rel":"decrease","obj":"おかし","num":"2","verb":"あげました","text":"おかしを2こあげました","display":"おかし を 2こ あげました","id":2},{"kind":"exist","obj":"おかし","num":"?","pred":"あります","text":"おかしが?こあります","display":"おかし が ?こ あります","id":3},{"kind":"exist","obj":"おかし","num":"2","pred":"あります","text":"おかしが2こあります","display":"おかし が 2こ あります","id":4},{"kind":"rel","rel":"decrease","obj":"おかし","num":"7","verb":"あげました","text":"おかしを7こあげました","display":"おかし を 7こ あげました","id":5},{"kind":"exist","obj":"りんご","num":"7","pred":"あります","text":"りんごが7こあります","display":"りんご が 7こ あります","id":6}],"note":""},{"lv":1,"asg":12,"lvAsg":112,"requirement":{"mode":"relation","op":"-","a":"6","b":"4","r":"?","story":"decrease","text":"「6-4=?」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「6-4=?」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"花のはち","num":"6","pred":"あります","text":"花のはちが6こあります","display":"花のはち が 6こ あります","id":1},{"kind":"rel","rel":"decrease","obj":"花のはち","num":"4","verb":"もってかえりました","text":"花のはちを4こもってかえりました","display":"花のはち を 4こ もってかえりました","id":2},{"kind":"exist","obj":"花のはち","num":"?","pred":"あります","text":"花のはちが?こあります","display":"花のはち が ?こ あります","id":3},{"kind":"exist","obj":"花のはち","num":"4","pred":"あります","text":"花のはちが4こあります","display":"花のはち が 4こ あります","id":4},{"kind":"rel","rel":"increase","obj":"花のはち","num":"?","verb":"もってきました","text":"花のはちを?こもってきました","display":"花のはち を ?こ もってきました","id":5}],"note":""},{"lv":1,"asg":13,"lvAsg":113,"requirement":{"mode":"relation","op":"-","a":"6","b":"2","r":"?","story":"compare","text":"「6-2=?」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「6-2=?」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"forward","expression":"story","tutorial":true,"cards":[{"kind":"exist","obj":"すずめ","num":"6","pred":"います","text":"すずめが6わいます","display":"すずめ が 6わ います","id":1},{"kind":"exist","obj":"からす","num":"2","pred":"います","text":"からすが2わいます","display":"からす が 2わ います","id":2},{"kind":"rel","rel":"compare","subj":"すずめ","ref":"からす","num":"?","dir":"more","text":"すすめはからすより?わおおいです","display":"すすめ は からす より ?わ おおいです","id":3}],"note":""},{"lv":1,"asg":14,"lvAsg":114,"requirement":{"mode":"relation","op":"-","a":"9","b":"7","r":"?","story":"compare","text":"「9-7=?」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「9-7=?」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"女の子","num":"9","pred":"います","text":"女の子が9人います","display":"女の子 が 9 人 います","id":1},{"kind":"exist","obj":"男の子","num":"7","pred":"います","text":"男の子が7人います","display":"男の子 が 7 人います","id":2},{"kind":"rel","rel":"compare","subj":"女の子","ref":"男の子","num":"?","dir":"more","text":"女の子は男の子より?人おおいです","display":"女の子 は 男の子 より\n?人 おおいです","id":3},{"kind":"exist","obj":"男の子","num":"?","pred":"います","text":"男の子が?人います","display":"男の子が?人います","id":4},{"kind":"rel","rel":"compare","subj":"男の子","ref":"女の子","num":"2","dir":"more","text":"男の子は女の子より2人おおいです","display":"男の子 は 女の子 より\n2人 おおいです","id":5}],"note":""},{"lv":1,"asg":15,"lvAsg":115,"requirement":{"mode":"relation","op":"-","a":"7","b":"6","r":"?","story":"compare","text":"「7-6=?」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「7-6=?」でけいさんできる「ちがいはいくつ」のおはなしをつくろう"},"story":"compare","order":0,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"おさら","num":"7","pred":"あります","text":"おさらが7まいあります","display":"おさら が 7まい あります","id":1},{"kind":"exist","obj":"ケーキ","num":"6","pred":"あります","text":"ケーキが6つあります","display":"ケーキ が 6つ あります","id":2},{"kind":"rel","rel":"compare","subj":"ケーキ","ref":"おさら","num":"?","dir":"less","text":"ケーキはおさらより?つすくないです","display":"ケーキ は おさら より?つ すくないです","id":3},{"kind":"exist","obj":"おさら","num":"?","pred":"あります","text":"おさらが?つあります","display":"おさら が ?つ あります","id":4},{"kind":"rel","rel":"compare","subj":"おさら","ref":"ケーキ","num":"?","dir":"less","text":"おさらはケーキより?つすくないです","display":"おさら は ケーキ より?つ すくないです","id":5},{"kind":"exist","obj":"フォーク","num":"7","pred":"あります","text":"フォークが7つあります","display":"フォーク が 7つ あります","id":6}],"note":"おさら，ケーキの順に引っ張られた"},{"lv":1,"asg":16,"lvAsg":116,"requirement":{"mode":"relation","op":"-","a":"8","b":"2","r":"?","story":"compare","text":"「8-2=?」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「8-2=?」でけいさんできる「ちがいはいくつ」のおはなしをつくろう"},"story":"compare","order":0,"thinking":"forward","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"ふうとう","num":"8","pred":"あります","text":"ふうとうが8まいあります","display":"ふうとう が 8まい あります","id":1},{"kind":"exist","obj":"カード","num":"2","pred":"あります","text":"カードが2まいあります","display":"カード が 2まい あります","id":2},{"kind":"rel","rel":"compare","subj":"ふうとう","ref":"カード","num":"?","dir":"more","text":"ふうとうはカードより?まいおおいです","display":"ふうとう は カードより?まい おおいです","id":3},{"kind":"exist","obj":"ふうとう","num":"?","pred":"あります","text":"ふうとうが?まいあります","display":"ふうとう が ?まい あります","id":4},{"kind":"rel","rel":"decrease","obj":"ふうとう","num":"2","verb":"あげました","text":"ふうとうを2まいあげました","display":"ふうとう を2まいあげました","id":5}],"note":"残りはいくつ？と誤解"},{"lv":2,"asg":1,"lvAsg":201,"requirement":{"mode":"relation","op":"+","a":"4","b":"?","r":"9","story":"combine","text":"「4+?=9」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「4+?=9」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"男の子","num":"4","pred":"います","text":"男の子が4人います","display":"男の子 が 4 人 います","id":1},{"kind":"exist","obj":"女の子","num":"?","pred":"います","text":"女の子が?人います","display":"女の子 が ? 人 います","id":2},{"kind":"rel","rel":"combine","objs":["男の子","女の子"],"num":"9","text":"男の子と女の子があわせて9人います","display":"男の子 と 女の子 が\nあわせて 9 人 います","id":3},{"kind":"exist","obj":"女の子","num":"9","pred":"います","text":"女の子が9人います","display":"女の子 が 9 人 います","id":4},{"kind":"rel","rel":"combine","objs":["男の子","女の子"],"num":"?","text":"男の子と女の子があわせて?人います","display":"男の子 と 女の子 が\nあわせて ? 人 います","id":5}],"note":""},{"lv":2,"asg":2,"lvAsg":202,"requirement":{"mode":"relation","op":"+","a":"2","b":"?","r":"7","story":"combine","text":"「2+?=7」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「2+?=7」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"とらねこ","num":"2","pred":"います","text":"とらねこが2ひきいます","display":"とらねこ が 2 ひき います","id":1},{"kind":"exist","obj":"しろねこ","num":"?","pred":"います","text":"しろねこが?ひきいます","display":"しろねこ が ? ひき います","id":2},{"kind":"rel","rel":"combine","objs":["とらねこ","しろねこ"],"num":"7","text":"とらねことしろねこがあわせて7ひきいます","display":"とらねこ と しろねこ が\nあわせて 7 ひき います","id":3},{"kind":"exist","obj":"とらねこ","num":"7","pred":"います","text":"とらねこが7ひきいます","display":"とらねこ が 7 ひき います","id":4},{"kind":"rel","rel":"combine","objs":["とらねこ","しろねこ"],"num":"?","text":"とらねことしろねこがあわせて?ひきいます","display":"とらねこ と しろねこ が\nあわせて ? ひき います","id":5},{"kind":"exist","obj":"くろねこ","num":"2","pred":"います","text":"くろねこが2ひきいます","display":"くろねこ が 2 ひき います","id":6}],"note":""},{"lv":2,"asg":3,"lvAsg":203,"requirement":{"mode":"relation","op":"+","a":"3","b":"?","r":"7","story":"combine","text":"「3+?=7」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「3+?=7」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"あんぱん","num":"3","pred":"あります","text":"あんぱんが3こあります","display":"あんぱん が 3 こ あります","id":1},{"kind":"exist","obj":"メロンパン","num":"?","pred":"あります","text":"メロンパンが?こあります","display":"メロンパン が ? こ あります","id":2},{"kind":"rel","rel":"combine","objs":["あんぱん","メロンパン"],"num":"7","text":"あんぱんとメロンパンがあわせて7こあります","display":"あんぱん と メロンパン が\nあわせて 7 こ あります","id":3},{"kind":"exist","obj":"メロンパン","num":"7","pred":"あります","text":"メロンパンが7こあります","display":"メロンパン が 7 こ あります","id":4},{"kind":"rel","rel":"compare","subj":"あんぱん","ref":"メロンパン","num":"?","dir":"more","text":"あんぱんはメロンパンより?こおおいです","display":"あんぱん は メロンパン より ? こ おおいです","id":5}],"note":""},{"lv":2,"asg":4,"lvAsg":204,"requirement":{"mode":"relation","op":"+","a":"7","b":"?","r":"9","story":"increase","text":"「7+?=9」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「7+?=9」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"子ども","num":"7","pred":"あそんでいます","text":"子どもが7人あそんでいます","display":"子ども が 7 人 あそんでいます","id":1},{"kind":"rel","rel":"increase","obj":"子ども","num":"?","verb":"きました","text":"子どもが?人きました","display":"子ども が ? 人 きました","id":2},{"kind":"exist","obj":"子ども","num":"9","pred":"あそんでいます","text":"子どもが9人あそんでいます","display":"子ども が 9 人 あそんでいます","id":3},{"kind":"exist","obj":"子ども","num":"?","pred":"あそんでいます","text":"子どもが?人あそんでいます","display":"子ども が ? 人 あそんでいます","id":4},{"kind":"rel","rel":"increase","obj":"子ども","num":"9","verb":"きました","text":"子どもが9人きました","display":"子ども が 9 人 きました","id":5}],"note":""},{"lv":2,"asg":5,"lvAsg":205,"requirement":{"mode":"relation","op":"+","a":"?","b":"4","r":"5","story":"increase","text":"「?+4=5」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「?+4=5」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"シール","num":"?","pred":"もっています","text":"シールを?まいもっています","display":"シール を ? まい もっています","id":1},{"kind":"rel","rel":"increase","obj":"シール","num":"4","verb":"もらいました","text":"シールを4まいもらいました","display":"シール を 4 まい もらいました","id":2},{"kind":"exist","obj":"シール","num":"5","pred":"もっています","text":"シールを5まいもっています","display":"シール を 5 まい もっています","id":3},{"kind":"exist","obj":"シール","num":"4","pred":"もっています","text":"シールを4まいもっています","display":"シール を 4 まい もっています","id":4},{"kind":"rel","rel":"increase","obj":"シール","num":"5","verb":"もらいました","text":"シールを5まいもらいました","display":"シール を 5 まい もらいました","id":5},{"kind":"exist","obj":"プリント","num":"?","pred":"もっています","text":"プリントを?まいもっています","display":"プリントを ? まい もっています","id":6}],"note":""},{"lv":2,"asg":6,"lvAsg":206,"requirement":{"mode":"relation","op":"+","a":"?","b":"5","r":"8","story":"increase","text":"「?+5=8」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「?+5=8」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"ふね","num":"?","pred":"とまっています","text":"ふねが?そうとまっています","display":"ふね が ? そう とまっています","id":1},{"kind":"rel","rel":"increase","obj":"ふね","num":"5","verb":"もどってきました","text":"ふねが5そうもどってきました","display":"ふね が 5 そう もどってきました","id":2},{"kind":"exist","obj":"ふね","num":"8","pred":"とまっています","text":"ふねが8そうとまっています","display":"ふね が 8 そう とまっています","id":3},{"kind":"exist","obj":"ふね","num":"5","pred":"とまっています","text":"ふねが5そうとまっています","display":"ふね が 5 そう とまっています","id":4},{"kind":"rel","rel":"decrease","obj":"ふね","num":"5","verb":"でていきました","text":"ふねが5そうでていきました","display":"ふね が 5 そう でていきました","id":5}],"note":""},{"lv":2,"asg":7,"lvAsg":207,"requirement":{"mode":"relation","op":"-","a":"?","b":"5","r":"1","story":"decrease","text":"「?-5=1」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「?ー5=1」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"あめ","num":"?","pred":"もっています","text":"あめを?こもっています","display":"あめ を ? こ もっています","id":1},{"kind":"rel","rel":"decrease","obj":"あめ","num":"5","verb":"たべました","text":"あめを5こたべました","display":"あめ を 5 こ たべました","id":2},{"kind":"exist","obj":"あめ","num":"1","pred":"もっています","text":"あめを1こもっています","display":"あめ を 1 こ もっています","id":3},{"kind":"exist","obj":"あめ","num":"5","pred":"もっています","text":"あめを5こもっています","display":"あめ を 5 こ もっています","id":4},{"kind":"rel","rel":"decrease","obj":"あめ","num":"?","verb":"たべました","text":"あめを?こたべました","display":"あめ を ? こ たべました","id":5}],"note":""},{"lv":2,"asg":8,"lvAsg":208,"requirement":{"mode":"relation","op":"-","a":"?","b":"3","r":"6","story":"decrease","text":"「?-3=6」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「?ー3=6」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"子ども","num":"?","pred":"あそんでいます","text":"子どもが?人あそんでいます","display":"子ども が ? 人 あそんでいます","id":1},{"kind":"rel","rel":"decrease","obj":"子ども","num":"3","verb":"かえりました","text":"子どもが3人かえりました","display":"子ども が 3 人 かえりました","id":2},{"kind":"exist","obj":"子ども","num":"6","pred":"あそんでいます","text":"子どもが6人あそんでいます","display":"子ども が 6 人 あそんでいます","id":3},{"kind":"exist","obj":"子ども","num":"3","pred":"あそんでいます","text":"子どもが3人あそんでいます","display":"子ども が 3 人 あそんでいます","id":4},{"kind":"rel","rel":"decrease","obj":"子ども","num":"?","verb":"かえりました","text":"子どもが?人かえりました","display":"子ども が ? 人 かえりました","id":5},{"kind":"exist","obj":"男の子","num":"6","pred":"あそんでいます","text":"男の子が6人あそんでいます","display":"男の子 が 6 人 あそんでいます","id":6}],"note":""},{"lv":2,"asg":9,"lvAsg":209,"requirement":{"mode":"relation","op":"-","a":"9","b":"?","r":"8","story":"decrease","text":"「9-?=8」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「9ー?=8」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"くるま","num":"9","pred":"あります","text":"くるまが9だいあります","display":"くるま が 9 だい あります","id":1},{"kind":"rel","rel":"decrease","obj":"くるま","num":"?","verb":"でていきました","text":"くるまが?だいでていきました","display":"くるま が ? だい でていきました","id":2},{"kind":"exist","obj":"くるま","num":"8","pred":"あります","text":"くるまが8だいあります","display":"くるま が 8 だい あります","id":3},{"kind":"exist","obj":"くるま","num":"1","pred":"あります","text":"くるまが1だいあります","display":"くるま が 1 だい あります","id":4},{"kind":"rel","rel":"increase","obj":"くるま","num":"?","verb":"きました","text":"くるまが?だいきました","display":"くるま が ? だい きました","id":5}],"note":""},{"lv":2,"asg":10,"lvAsg":210,"requirement":{"mode":"relation","op":"-","a":"6","b":"?","r":"4","story":"compare","text":"「6-?=4」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「6ー?=4」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"ねこ","num":"6","pred":"います","text":"ねこが6ひきいます","display":"ねこ が 6 ひき います","id":1},{"kind":"exist","obj":"いぬ","num":"?","pred":"います","text":"いぬが?ひきいます","display":"いぬ が ? ひき います","id":2},{"kind":"rel","rel":"compare","subj":"ねこ","ref":"いぬ","num":"4","dir":"more","text":"ねこはいぬより4ひきおおいです","display":"ねこ は いぬ より\n4 ひき おおいです","id":3},{"kind":"exist","obj":"ねこ","num":"4","pred":"います","text":"ねこが4ひきいます","display":"ねこ が 4 ひき います","id":4},{"kind":"rel","rel":"compare","subj":"ねこ","ref":"いぬ","num":"?","dir":"more","text":"ねこはいぬより?ひきおおいです","display":"ねこ は いぬ より\n? ひき おおいです","id":5}],"note":""},{"lv":2,"asg":11,"lvAsg":211,"requirement":{"mode":"relation","op":"-","a":"5","b":"?","r":"3","story":"compare","text":"「5-?=3」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「5ー?=3」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"きのうのおきゃくさん","num":"5","pred":"です","text":"きのうのおきゃくさんは5人です","display":"きのうのおきゃくさん は 5 人 です","id":1},{"kind":"exist","obj":"きょうのおきゃくさん","num":"?","pred":"です","text":"きょうのおきゃくさんは?人です","display":"きょうのおきゃくさん は ? 人 です","id":2},{"kind":"rel","rel":"compare","subj":"きょうのおきゃくさん","ref":"きのうのおきゃくさん","num":"3","dir":"less","text":"きょうのおきゃくさんはきのうのおきゃくさんより3人すくないです","display":"きょうのおきゃくさん は きのうのおきゃくさん より\n3 人 すくないです","id":3},{"kind":"exist","obj":"きのうのおきゃくさん","num":"3","pred":"です","text":"きのうのおきゃくさんは3人です","display":"きのうのおきゃくさん は 3 人 です","id":4},{"kind":"rel","rel":"compare","subj":"きょうのおきゃくさん","ref":"きのうのおきゃくさん","num":"5","dir":"less","text":"きょうのおきゃくさんはきのうのおきゃくさんより5人すくないです","display":"きょうのおきゃくさん は きのうのおきゃくさん より\n5 人 すくないです","id":5},{"kind":"exist","obj":"あしたのおきゃくさん","num":"5","pred":"です","text":"あしたのおきゃくさんは5人です","display":"あしたのおきゃくさん は 5 人 です","id":6}],"note":""},{"lv":2,"asg":12,"lvAsg":212,"requirement":{"mode":"relation","op":"-","a":"?","b":"6","r":"2","story":"compare","text":"「?-6=2」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「?ー6=2」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"赤いあさがお","num":"?","pred":"さいています","text":"赤いあさがおが?つさいています","display":"赤いあさがお が ? つ さいています","id":1},{"kind":"exist","obj":"白いあさがお","num":"2","pred":"さいています","text":"白いあさがおが2つさいています","display":"白いあさがお が 2 つ さいています","id":2},{"kind":"rel","rel":"compare","subj":"赤いあさがお","ref":"白いあさがお","num":"6","dir":"more","text":"赤いあさがおは白いあさがおより6つおおくさいています","display":"赤いあさがお は 白いあさがお より\n6つ おおくさいています","id":3},{"kind":"exist","obj":"赤いあさがお","num":"2","pred":"さいています","text":"赤いあさがおが2つさいています","display":"赤いあさがお が 2 つ さいています","id":4},{"kind":"rel","rel":"combine","objs":["赤いあさがお","白いあさがお"],"num":"8","text":"赤いあさがおと白いあさがおがあわせて8つさいています","display":"赤いあさがお と 白いあさがお が\nあわせて 8つ さいています","id":5}],"note":""},{"lv":3,"asg":1,"lvAsg":301,"requirement":{"mode":"relation","op":"+","a":"3","b":"?","r":"7","story":"combine","text":"「3+?=7」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「3+?=7」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"あんぱん","num":"3","pred":"あります","text":"あんぱんが3こあります","display":"あんぱん が 3 こ あります","id":1},{"kind":"exist","obj":"メロンパン","num":"?","pred":"あります","text":"メロンパンが?こあります","display":"メロンパン が ? こ あります","id":2},{"kind":"rel","rel":"combine","objs":["あんぱん","メロンパン"],"num":"7","text":"あんぱんとメロンパンがあわせて7こあります","display":"あんぱん と メロンパン が\nあわせて 7 こ あります","id":3},{"kind":"exist","obj":"メロンパン","num":"7","pred":"あります","text":"メロンパンが7こあります","display":"メロンパン が 7 こ あります","id":4},{"kind":"rel","rel":"compare","subj":"あんぱん","ref":"メロンパン","num":"?","dir":"more","text":"あんぱんはメロンパンより?こおおいです","display":"あんぱん は メロンパン より ? こ おおいです","id":5}],"note":""},{"lv":3,"asg":2,"lvAsg":302,"requirement":{"mode":"relation","op":"+","a":"?","b":"5","r":"8","story":"increase","text":"「?+5=8」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「?+5=8」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"ふね","num":"?","pred":"とまっています","text":"ふねが?そうとまっています","display":"ふね が ? そう とまっています","id":1},{"kind":"rel","rel":"increase","obj":"ふね","num":"5","verb":"もどってきました","text":"ふねが5そうもどってきました","display":"ふね が 5 そう もどってきました","id":2},{"kind":"exist","obj":"ふね","num":"8","pred":"とまっています","text":"ふねが8そうとまっています","display":"ふね が 8 そう とまっています","id":3},{"kind":"exist","obj":"ふね","num":"5","pred":"とまっています","text":"ふねが5そうとまっています","display":"ふね が 5 そう とまっています","id":4},{"kind":"rel","rel":"decrease","obj":"ふね","num":"5","verb":"でていきました","text":"ふねが5そうでていきました","display":"ふね が 5 そう でていきました","id":5}],"note":""},{"lv":3,"asg":3,"lvAsg":303,"requirement":{"mode":"relation","op":"-","a":"9","b":"?","r":"8","story":"decrease","text":"「9-?=8」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「9ー?=8」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"くるま","num":"9","pred":"あります","text":"くるまが9だいあります","display":"くるま が 9 だい あります","id":1},{"kind":"rel","rel":"decrease","obj":"くるま","num":"?","verb":"でていきました","text":"くるまが?だいでていきました","display":"くるま が ? だい でていきました","id":2},{"kind":"exist","obj":"くるま","num":"8","pred":"あります","text":"くるまが8だいあります","display":"くるま が 8 だい あります","id":3},{"kind":"exist","obj":"くるま","num":"1","pred":"あります","text":"くるまが1だいあります","display":"くるま が 1 だい あります","id":4},{"kind":"rel","rel":"increase","obj":"くるま","num":"?","verb":"きました","text":"くるまが?だいきました","display":"くるま が ? だい きました","id":5}],"note":""},{"lv":3,"asg":4,"lvAsg":304,"requirement":{"mode":"relation","op":"-","a":"?","b":"6","r":"2","story":"compare","text":"「?-6=2」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「?ー6=2」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"reverse","expression":"story","tutorial":false,"cards":[{"kind":"exist","obj":"赤いあさがお","num":"?","pred":"さいています","text":"赤いあさがおが?つさいています","display":"赤いあさがお が ? つ さいています","id":1},{"kind":"exist","obj":"白いあさがお","num":"2","pred":"さいています","text":"白いあさがおが2つさいています","display":"白いあさがお が 2 つ さいています","id":2},{"kind":"rel","rel":"compare","subj":"赤いあさがお","ref":"白いあさがお","num":"6","dir":"more","text":"赤いあさがおは白いあさがおより6つおおくさいています","display":"赤いあさがお は 白いあさがお より\n6つ おおくさいています","id":3},{"kind":"exist","obj":"赤いあさがお","num":"2","pred":"さいています","text":"赤いあさがおが2つさいています","display":"赤いあさがお が 2 つ さいています","id":4},{"kind":"rel","rel":"combine","objs":["赤いあさがお","白いあさがお"],"num":"8","text":"赤いあさがおと白いあさがおがあわせて8つさいています","display":"赤いあさがお と 白いあさがお が\nあわせて 8つ さいています","id":5}],"note":""},{"lv":3,"asg":5,"lvAsg":305,"requirement":{"mode":"calc","op":"-","a":"4","b":"1","r":null,"story":"combine","text":"「4-1」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「4-1」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"ながいひも","num":"1","pred":"あります","text":"ながいひもが1本あります","display":"ながいひも が 1 本 あります","id":1},{"kind":"exist","obj":"みじかいひも","num":"?","pred":"あります","text":"みじかいひもが?本あります","display":"みじかいひも が ? 本 あります","id":2},{"kind":"rel","rel":"combine","objs":["ながいひも","みじかいひも"],"num":"4","text":"ながいひもとみじかいひもがぜんぶで4本あります","display":"ながいひも と みじかいひも が\nぜんぶで 4 本 あります","id":3},{"kind":"exist","obj":"ながいひも","num":"4","pred":"あります","text":"ながいひもが4本あります","display":"ながいひも が 4 本 あります","id":4},{"kind":"rel","rel":"combine","objs":["ながいひも","みじかいひも"],"num":"?","text":"ながいひもとみじかいひもがぜんぶで?本あります","display":"ながいひも と みじかいひも が\nぜんぶで ? 本 あります","id":5}],"note":"類題1"},{"lv":3,"asg":6,"lvAsg":306,"requirement":{"mode":"calc","op":"-","a":"8","b":"3","r":null,"story":"combine","text":"「8-3」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「8ー3」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"白いうさぎ","num":"3","pred":"います","text":"白いうさぎが3ひきいます","display":"白いうさぎ が 3 ひき います","id":1},{"kind":"exist","obj":"黒いうさぎ","num":"?","pred":"います","text":"黒いうさぎが?ひきいます","display":"黒いうさぎ が ? ひき います","id":2},{"kind":"rel","rel":"combine","objs":["白いうさぎ","黒いうさぎ"],"num":"8","text":"白いうさぎと黒いうさぎがぜんぶで8ひきいます","display":"白いうさぎ と 黒いうさぎ が\nぜんぶで 8 ひき います","id":3},{"kind":"exist","obj":"白いうさぎ","num":"8","pred":"います","text":"白いうさぎが8ひきいます","display":"白いうさぎ が 8 ひき います","id":4},{"kind":"rel","rel":"combine","objs":["白いうさぎ","黒いうさぎ"],"num":"?","text":"白いうさぎと黒いうさぎがぜんぶで?ひきいます","display":"白いうさぎ と 黒いうさぎ が\nぜんぶで ? ひき います","id":5}],"note":"類題1"},{"lv":3,"asg":7,"lvAsg":307,"requirement":{"mode":"calc","op":"-","a":"7","b":"4","r":null,"story":"combine","text":"「7-4」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「7ー4」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"白い花かざり","num":"?","pred":"あります","text":"白い花かざりが?こあります","display":"白い花かざり が ? こ あります","id":1},{"kind":"exist","obj":"赤い花かざり","num":"4","pred":"あります","text":"赤い花かざりが4こあります","display":"赤い花かざり が 4 こ あります","id":2},{"kind":"rel","rel":"combine","objs":["白い花かざり","赤い花かざり"],"num":"7","text":"白い花かざりと赤い花かざりがあわせて7こあります","display":"白い花かざり と 赤い花かざり が\nあわせて 7 こ あります","id":3},{"kind":"exist","obj":"白い花かざり","num":"7","pred":"あります","text":"白い花かざりが7こあります","display":"白い花かざり が 7 こ あります","id":4},{"kind":"rel","rel":"combine","objs":["白い花かざり","赤い花かざり"],"num":"?","text":"白い花かざりと赤い花かざりがあわせて?こあります","display":"白い花かざり と 赤い花かざり が\nあわせて ? こ あります","id":5},{"kind":"exist","obj":"きいろい花かざり","num":"4","pred":"あります","text":"きいろい花かざりが4こあります","display":"きいろい花かざり が 4 こ あります","id":6}],"note":""},{"lv":3,"asg":8,"lvAsg":308,"requirement":{"mode":"calc","op":"-","a":"5","b":"4","r":null,"story":"combine","text":"「5-4」でけいさんできる「あわせていくつ」のおはなしをつくろう","display":"「5ー4」でけいさんできる\n「あわせていくつ」の\nおはなしをつくろう"},"story":"combine","order":0,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"男の子","num":"4","pred":"あそんでいます","text":"男の子が4人あそんでいます","display":"男の子 が 4 人 あそんでいます","id":1},{"kind":"exist","obj":"女の子","num":"?","pred":"あそんでいます","text":"女の子が?人あそんでいます","display":"女の子 が ? 人 あそんでいます","id":2},{"kind":"rel","rel":"combine","objs":["男の子","女の子"],"num":"5","text":"男の子と女の子があわせて5人あそんでいます","display":"男の子 と 女の子 が\nあわせて 5 人 あそんでいます","id":3},{"kind":"exist","obj":"男の子","num":"5","pred":"あそんでいます","text":"男の子が5人あそんでいます","display":"男の子 が 5 人 あそんでいます","id":4},{"kind":"rel","rel":"compare","subj":"男の子","ref":"女の子","num":"4","dir":"more","text":"男の子は女の子より4人おおいです","display":"男の子 は 女の子 より\n4 人 おおいです","id":5}],"note":""},{"lv":3,"asg":9,"lvAsg":309,"requirement":{"mode":"calc","op":"-","a":"5","b":"3","r":null,"story":"increase","text":"「5-3」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「5ー3」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"あめ","num":"?","pred":"あります","text":"あめが?こあります","display":"あめ が ? こ あります","id":1},{"kind":"rel","rel":"increase","obj":"あめ","num":"3","verb":"もらいました","text":"あめを3こもらいました","display":"あめ を 3 こ もらいました","id":2},{"kind":"exist","obj":"あめ","num":"5","pred":"あります","text":"あめが5こあります","display":"あめ が 5 こ あります","id":3},{"kind":"exist","obj":"あめ","num":"3","pred":"あります","text":"あめが3こあります","display":"あめ が 3 こ あります","id":4},{"kind":"rel","rel":"increase","obj":"あめ","num":"5","verb":"もらいました","text":"あめを5こもらいました","display":"あめ を 5 こ もらいました","id":5}],"note":"類題2"},{"lv":3,"asg":10,"lvAsg":310,"requirement":{"mode":"calc","op":"-","a":"9","b":"8","r":null,"story":"increase","text":"「9-8」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「9ー8」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"すずめ","num":"?","pred":"います","text":"すずめが?わいます","display":"すずめ が ? わ います","id":1},{"kind":"rel","rel":"increase","obj":"すずめ","num":"8","verb":"ふえました","text":"すずめが8わふえました","display":"すずめ が 8 わ ふえました","id":2},{"kind":"exist","obj":"すずめ","num":"9","pred":"います","text":"すずめが9わいます","display":"すずめ が 9 わ います","id":3},{"kind":"exist","obj":"すずめ","num":"8","pred":"います","text":"すずめが8わいます","display":"すずめ が 8 わ います","id":4},{"kind":"rel","rel":"increase","obj":"すずめ","num":"9","verb":"ふえました","text":"すずめが9わふえました","display":"すずめ が 9 わ ふえました","id":5}],"note":"類題2"},{"lv":3,"asg":11,"lvAsg":311,"requirement":{"mode":"calc","op":"-","a":"6","b":"4","r":null,"story":"increase","text":"「6-4」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「6ー4」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"子ども","num":"?","pred":"います","text":"子どもが?人います","display":"子ども が ? 人 います","id":1},{"kind":"rel","rel":"increase","obj":"子ども","num":"4","verb":"きました","text":"子どもが4人きました","display":"子ども が 4 人 きました","id":2},{"kind":"exist","obj":"子ども","num":"6","pred":"います","text":"子どもが6人います","display":"子ども が 6 人 います","id":3},{"kind":"exist","obj":"子ども","num":"4","pred":"います","text":"子どもが4人います","display":"子ども が 4 人 います","id":4},{"kind":"rel","rel":"increase","obj":"子ども","num":"6","verb":"きました","text":"子どもが6人きました","display":"子ども が 6 人 きました","id":5},{"kind":"exist","obj":"おとな","num":"?","pred":"います","text":"おとなが?人います","display":"おとな が ? 人 います","id":6}],"note":""},{"lv":3,"asg":12,"lvAsg":312,"requirement":{"mode":"calc","op":"-","a":"5","b":"2","r":null,"story":"increase","text":"「5-2」でけいさんできる「ふえるといくつ」のおはなしをつくろう","display":"「5ー2」でけいさんできる\n「ふえるといくつ」の\nおはなしをつくろう"},"story":"increase","order":1,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"きんぎょ","num":"2","pred":"います","text":"きんぎょが2ひきいます","display":"きんぎょ が 2 ひき います","id":1},{"kind":"rel","rel":"increase","obj":"きんぎょ","num":"?","verb":"もらいました","text":"きんぎょを?ひきもらいました","display":"きんぎょ を ? ひき もらいました","id":2},{"kind":"exist","obj":"きんぎょ","num":"5","pred":"います","text":"きんぎょが5ひきいます","display":"きんぎょ が 5 ひき います","id":3},{"kind":"exist","obj":"きんぎょ","num":"?","pred":"います","text":"きんぎょが?ひきいます","display":"きんぎょ が ? ひき います","id":4},{"kind":"rel","rel":"decrease","obj":"きんぎょ","num":"2","verb":"あげました","text":"きんぎょを2ひきあげました","display":"きんぎょ を 2 ひき あげました","id":5}],"note":""},{"lv":3,"asg":13,"lvAsg":313,"requirement":{"mode":"calc","op":"+","a":"5","b":"3","r":null,"story":"decrease","text":"「5+3」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「5+3」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"がようし","num":"?","pred":"もっています","text":"がようしを?枚もっています","display":"がようし を ? 枚 もっています","id":1},{"kind":"rel","rel":"decrease","obj":"がようし","num":"5","verb":"つかいました","text":"がようしを5枚つかいました","display":"がようし を 5 枚 つかいました","id":2},{"kind":"exist","obj":"がようし","num":"3","pred":"もっています","text":"がようしを3枚もっています","display":"がようし を 3 枚 もっています","id":3},{"kind":"exist","obj":"がようし","num":"5","pred":"もっています","text":"がようしが5枚もっています","display":"がようし が 5 枚 もっています","id":4},{"kind":"rel","rel":"decrease","obj":"がようし","num":"?","verb":"つかいました","text":"がようしを?枚つかいました","display":"がようし を ? 枚 つかいました","id":5}],"note":"類題3"},{"lv":3,"asg":14,"lvAsg":314,"requirement":{"mode":"calc","op":"+","a":"6","b":"2","r":null,"story":"decrease","text":"「6+2」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「6+2」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"ジュース","num":"?","pred":"あります","text":"ジュースが?本あります","display":"ジュース が ? 本 あります","id":1},{"kind":"rel","rel":"decrease","obj":"ジュース","num":"6","verb":"くばります","text":"ジュースを6本くばります","display":"ジュース を 6 本 くばります","id":2},{"kind":"exist","obj":"ジュース","num":"2","pred":"あります","text":"ジュースが2本あります","display":"ジュース が 2 本 あります","id":3},{"kind":"exist","obj":"ジュース","num":"6","pred":"あります","text":"ジュースが6本あります","display":"ジュース が 6 本 あります","id":4},{"kind":"rel","rel":"decrease","obj":"ジュース","num":"?","verb":"くばります","text":"ジュースを?本くばります","display":"ジュース を ? 本 くばります","id":5}],"note":"類題3"},{"lv":3,"asg":15,"lvAsg":315,"requirement":{"mode":"calc","op":"+","a":"2","b":"7","r":null,"story":"decrease","text":"「2+7」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「2+7」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"いちごのケーキ","num":"?","pred":"あります","text":"いちごのケーキが?こあります","display":"いちごのケーキ が ? こ あります","id":1},{"kind":"rel","rel":"decrease","obj":"いちごのケーキ","num":"7","verb":"うれました","text":"いちごのケーキが7こうれました","display":"いちごのケーキ が 7 こ うれました","id":2},{"kind":"exist","obj":"いちごのケーキ","num":"2","pred":"あります","text":"いちごのケーキが2こあります","display":"いちごのケーキ が 2 こ あります","id":3},{"kind":"exist","obj":"いちごのケーキ","num":"7","pred":"あります","text":"いちごのケーキが7こあります","display":"いちごのケーキ が 7 こ あります","id":4},{"kind":"rel","rel":"decrease","obj":"いちごのケーキ","num":"?","verb":"うれました","text":"いちごのケーキが?こうれました","display":"いちごのケーキ が ? こ うれました","id":5},{"kind":"exist","obj":"みかんのケーキ","num":"2","pred":"あります","text":"みかんのケーキが2こあります","display":"みかんのケーキ が 2 こ あります","id":6}],"note":""},{"lv":3,"asg":16,"lvAsg":316,"requirement":{"mode":"calc","op":"+","a":"1","b":"8","r":null,"story":"decrease","text":"「1+8」でけいさんできる「のこりはいくつ」のおはなしをつくろう","display":"「1+8」でけいさんできる\n「のこりはいくつ」の\nおはなしをつくろう"},"story":"decrease","order":1,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"えんぴつ","num":"?","pred":"あります","text":"えんぴつが?ほんあります","display":"えんぴつ が ? ほん あります","id":1},{"kind":"rel","rel":"decrease","obj":"えんぴつ","num":"1","verb":"あげました","text":"えんぴつを1ほんあげました","display":"えんぴつ を 1 ほん あげました","id":2},{"kind":"exist","obj":"えんぴつ","num":"8","pred":"あります","text":"えんぴつが8ほんあります","display":"えんぴつ が 8 ほん あります","id":3},{"kind":"exist","obj":"えんぴつ","num":"1","pred":"あります","text":"えんぴつが1ほんあります","display":"えんぴつ が 1 ほん あります","id":4},{"kind":"rel","rel":"increase","obj":"えんぴつ","num":"8","verb":"かいました","text":"えんぴつを8ほんかいました","display":"えんぴつ を 8 ほん かいました","id":5}],"note":""},{"lv":3,"asg":17,"lvAsg":317,"requirement":{"mode":"calc","op":"+","a":"7","b":"1","r":null,"story":"compare","text":"「7+1」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「7+1」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"ねこ","num":"?","pred":"います","text":"ねこが?ひきいます","display":"ねこ が ? ひき います","id":1},{"kind":"exist","obj":"いぬ","num":"1","pred":"います","text":"いぬが1ひきいます","display":"いぬ が 1 ひき います","id":2},{"kind":"rel","rel":"compare","subj":"ねこ","ref":"いぬ","num":"7","dir":"more","text":"ねこはいぬより7ひきおおいです","display":"ねこ は いぬ より\n7 ひき おおいです","id":3},{"kind":"exist","obj":"いぬ","num":"7","pred":"います","text":"いぬが7ひきいます","display":"いぬ が 7 ひき います","id":4},{"kind":"rel","rel":"compare","subj":"ねこ","ref":"いぬ","num":"?","dir":"more","text":"ねこはいぬより?ひきおおいです","display":"ねこ は いぬ より\n? ひき おおいです","id":5}],"note":"類題4"},{"lv":3,"asg":18,"lvAsg":318,"requirement":{"mode":"calc","op":"+","a":"5","b":"4","r":null,"story":"compare","text":"「5+4」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「5+4」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"きのうきた人","num":"?","pred":"です","text":"きのうきた人は?人です","display":"きのうきた人 は ? 人 です","id":1},{"kind":"exist","obj":"きょうきた人","num":"4","pred":"です","text":"きょうきた人は4人です","display":"きょうきた人 は 4 人 です","id":2},{"kind":"rel","rel":"compare","subj":"きのうきた人","ref":"きょうきた人","num":"5","dir":"more","text":"きのうきた人はきょうきた人より5人おおいです","display":"きのうきた人 は きょうきた人 より\n5 人 おおいです","id":3},{"kind":"exist","obj":"きょうきた人","num":"5","pred":"です","text":"きょうきた人は5人です","display":"きょうきた人 は 5 人 です","id":4},{"kind":"rel","rel":"compare","subj":"きのうきた人","ref":"きょうきた人","num":"?","dir":"more","text":"きのうきた人はきょうきた人より?人おおいです","display":"きのうきた人 は きょうきた人 より\n? 人 おおいです","id":5}],"note":"類題4"},{"lv":3,"asg":19,"lvAsg":319,"requirement":{"mode":"calc","op":"+","a":"3","b":"6","r":null,"story":"compare","text":"「3+6」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「3+6」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"きいろい花","num":"?","pred":"さいています","text":"きいろい花が?こさいています","display":"きいろい花 が ? こ さいています","id":1},{"kind":"exist","obj":"白い花","num":"3","pred":"さいています","text":"白い花が3こさいています","display":"白い花 が 3 こ さいています","id":2},{"kind":"rel","rel":"compare","subj":"白い花","ref":"きいろい花","num":"6","dir":"less","text":"白い花はきいろい花より6こすくないです","display":"白い花 は きいろい花 より\n6 こ すくないです","id":3},{"kind":"exist","obj":"きいろい花","num":"6","pred":"さいています","text":"きいろい花が6こさいています","display":"きいろい花 が 6 こ さいています","id":4},{"kind":"rel","rel":"compare","subj":"白い花","ref":"きいろい花","num":"?","dir":"less","text":"白い花はきいろい花より?こすくないです","display":"白い花 は きいろい花 より\n? こ すくないです","id":5},{"kind":"exist","obj":"赤い花","num":"3","pred":"さいています","text":"赤い花が3こさいています","display":"赤い花 が 3 こ さいています","id":6}],"note":""},{"lv":3,"asg":20,"lvAsg":320,"requirement":{"mode":"calc","op":"+","a":"5","b":"2","r":null,"story":"compare","text":"「5+2」でけいさんできる「ちがいはいくつ」のおはなしをつくろう","display":"「5+2」でけいさんできる\n「ちがいはいくつ」の\nおはなしをつくろう"},"story":"compare","order":0,"thinking":"reverse","expression":"calc","tutorial":false,"cards":[{"kind":"exist","obj":"さんすうのもんだい","num":"?","pred":"あります","text":"さんすうのもんだいが?だいあります","display":"さんすうのもんだい が ? だい あります","id":1},{"kind":"exist","obj":"こくごのもんだい","num":"5","pred":"あります","text":"こくごのもんだいが5だいあります","display":"こくごのもんだい が 5 だい あります","id":2},{"kind":"rel","rel":"compare","subj":"さんすうのもんだい","ref":"こくごのもんだい","num":"2","dir":"more","text":"さんすうのもんだいはこくごのもんだいより2だいおおいです","display":"さんすうのもんだい は こくごのもんだい より\n2 だい おおいです","id":3},{"kind":"exist","obj":"さんすうのもんだい","num":"2","pred":"あります","text":"さんすうのもんだいが2だいあります","display":"さんすうのもんだい が 2 だい あります","id":4},{"kind":"rel","rel":"combine","objs":["さんすうのもんだい","こくごのもんだい"],"num":"?","text":"さんすうのもんだいとこくごのもんだいがあわせて?だいあります","display":"さんすうのもんだい と こくごのもんだい が\nあわせて ? だい あります","id":5}],"note":""}]};
+</script>
+
+<script>
+/*
+ * 課題づくりの道具（教員用ページで使う純粋関数。tools/test_gas.js からも呼ぶ）。
+ *
+ *   MSK_TOOLS.requirementText(task)  … 作問条件の文（「4+3=?」でけいさんできる「あわせていくつ」の…）
+ *   MSK_TOOLS.cardText(card)         … カードの属性から文を作る（{text, display}）
+ *   MSK_TOOLS.check(task)            … 判定エンジンで課題を検査する（{errors, warnings, solutions}）
+ *   MSK_TOOLS.newTask(lv, asg)       … 新しい課題のひな形
+ *   MSK_TOOLS.normalize(task)        … 保存前に派生する値（lvAsg、order、expression、thinking、カード番号）をそろえる
+ *
+ * 文の作り方は寺西小学校実践用作問課題（data/tasks.json）の文面に合わせた。属性（オブジェクト・数・関係の種類）が
+ * 判定に使われ、文は児童に見せるだけなので、作った文は自由に直してよい。
+ */
+var MSK_TOOLS = (function () {
+  var STORY_PHRASE = { combine: 'あわせていくつ', increase: 'ふえるといくつ', decrease: 'のこりはいくつ', compare: 'ちがいはいくつ' };
+  var STORY_LABEL = { combine: '合併（あわせて）', increase: '増加（ふえると）', decrease: '減少（のこりは）', compare: '比較（ちがいは）' };
+
+  function equation(q) {
+    return q.mode === 'calc' ? q.a + q.op + q.b : q.a + q.op + q.b + '=' + q.r;
+  }
+
+  function requirementText(t) {
+    var eq = equation(t.requirement), ph = STORY_PHRASE[t.story] || '';
+    return {
+      text: '「' + eq + '」でけいさんできる「' + ph + '」のおはなしをつくろう',
+      display: '「' + eq + '」でけいさんできる\n「' + ph + '」の\nおはなしをつくろう',
+    };
+  }
+
+  /** 属性 → 文。単位（ひき・本・こ など）は判定には使わず、文を作るためだけに持つ。 */
+  function cardText(c) {
+    var n = (c.num || '') + (c.unit || '');
+    var parts;
+    if (c.kind === 'exist') parts = [c.obj + ' が', n, c.pred || 'あります'];
+    else if (c.rel === 'combine') parts = [(c.objs || [])[0] + ' と ' + (c.objs || [])[1] + ' は', 'あわせて ' + n, c.pred || 'あります'];
+    else if (c.rel === 'increase') parts = [c.obj + ' が', n, c.verb || 'ふえました'];
+    else if (c.rel === 'decrease') parts = [c.obj + ' が', n, c.verb || 'へりました'];
+    else if (c.rel === 'compare') parts = [c.subj + ' は ' + c.ref + ' より', n, c.dir === 'less' ? 'すくないです' : 'おおいです'];
+    else parts = [''];
+    var display = parts.join(' ').replace(/\s+/g, ' ').trim();
+    return { text: display.replace(/ /g, ''), display: display };
+  }
+
+  /** 文から単位を推定する（既定の課題は単位を属性に持たないため）。「しろいいぬ が 2ひき います」→「ひき」 */
+  function inferUnit(c) {
+    if (c.unit || !c.num) return c;
+    var esc = String(c.num).replace(/[?]/g, '\\?');
+    var m = (c.display || c.text || '').match(new RegExp('(^|\\s)' + esc + '([ぁ-んァ-ヶー一-龠]{1,3})(?=\\s|$)'));
+    if (m) c.unit = m[2];
+    return c;
+  }
+
+  function newTask(lv, asg) {
+    var t = {
+      lv: lv, asg: asg, story: 'combine', order: 0, tutorial: false, note: '',
+      requirement: { mode: 'relation', op: '+', a: '2', b: '3', r: '?' },
+      cards: [
+        { kind: 'exist', obj: 'あかいはな', num: '2', unit: 'ほん', pred: 'さいています', correct: true },
+        { kind: 'exist', obj: 'しろいはな', num: '3', unit: 'ほん', pred: 'さいています', correct: true },
+        { kind: 'rel', rel: 'combine', objs: ['あかいはな', 'しろいはな'], num: '?', unit: 'ほん', pred: 'さいています', correct: true },
+        { kind: 'exist', obj: 'あかいはな', num: '5', unit: 'ほん', pred: 'さいています', correct: false },
+        { kind: 'rel', rel: 'increase', obj: 'あかいはな', num: '3', unit: 'ほん', verb: 'ふえました', correct: false },
+      ],
+    };
+    t.cards.forEach(function (c) { var x = cardText(c); c.text = x.text; c.display = x.display; });
+    var q = requirementText(t);
+    t.requirement.text = q.text; t.requirement.display = q.display;
+    return normalize(t);
+  }
+
+  /** 保存前にそろえる値。増加・減少は文の順序を問う（関係文はまん中）。 */
+  function normalize(t) {
+    var q = t.requirement;
+    q.story = t.story;
+    if (q.mode === 'calc') q.r = null;
+    t.lv = Number(t.lv); t.asg = Number(t.asg);
+    t.lvAsg = t.lv * 100 + t.asg;
+    t.order = t.story === 'increase' || t.story === 'decrease' ? 1 : 0;
+    t.expression = q.mode === 'calc' ? 'calc' : 'story';
+    t.thinking = q.mode === 'relation' && q.r === '?' ? 'forward' : 'reverse';
+    t.cards.forEach(function (c, i) {
+      c.id = i + 1;
+      if (c.kind === 'exist') { delete c.rel; delete c.objs; delete c.subj; delete c.ref; delete c.dir; delete c.verb; }
+      else if (c.rel === 'combine') { delete c.obj; delete c.subj; delete c.ref; delete c.dir; delete c.verb; }
+      else if (c.rel === 'compare') { delete c.obj; delete c.objs; delete c.pred; delete c.verb; }
+      else { delete c.objs; delete c.subj; delete c.ref; delete c.dir; delete c.pred; }
+      if (!c.display) c.display = c.text;
+    });
+    return t;
+  }
+
+  function permutations3(ids) {
+    var out = [];
+    ids.forEach(function (a) { ids.forEach(function (b) { ids.forEach(function (c) {
+      if (a !== b && b !== c && a !== c) out.push([a, b, c]);
+    }); }); });
+    return out;
+  }
+
+  var NUM = /^(\?|\d{1,3})$/;
+
+  /**
+   * 課題の検査。errors があると児童が正解できない（または判定できない）課題。
+   * solutions … 5 制約をすべて満たすカードの並び（[id, id, id]）の一覧。
+   */
+  function check(t) {
+    var errors = [], warnings = [];
+    var q = t.requirement || {};
+    [['a', q.a], ['b', q.b]].concat(q.mode === 'calc' ? [] : [['r', q.r]]).forEach(function (x) {
+      if (!NUM.test(String(x[1]))) errors.push('作問条件の ' + x[0] + ' は数字か ? にする（いまは「' + x[1] + '」）');
+    });
+    var qs = [q.a, q.b].concat(q.mode === 'calc' ? [] : [q.r]).filter(function (v) { return v === '?'; }).length;
+    if (q.mode === 'relation' && qs !== 1) errors.push('関係式の作問条件には ? をちょうど 1 つ入れる');
+    if (q.mode === 'calc' && qs !== 0) errors.push('計算式の作問条件には ? を入れない');
+    if (!t.cards || t.cards.length < 3) errors.push('カードは 3 枚以上');
+    (t.cards || []).forEach(function (c, i) {
+      var name = 'カード ' + (i + 1);
+      if (!NUM.test(String(c.num))) errors.push(name + '：数は数字か ? にする');
+      if (c.kind === 'exist' && !c.obj) errors.push(name + '：ものの名前が空');
+      if (c.rel === 'combine' && (!c.objs || !c.objs[0] || !c.objs[1])) errors.push(name + '：あわせる 2 つのものを入れる');
+      if (c.rel === 'compare' && (!c.subj || !c.ref)) errors.push(name + '：くらべる 2 つのものを入れる');
+      if ((c.rel === 'increase' || c.rel === 'decrease') && !c.obj) errors.push(name + '：ものの名前が空');
+      if (!c.text) errors.push(name + '：文が空');
+      else if (String(c.num) && String(c.text).indexOf(String(c.num)) < 0) {
+        warnings.push(name + '：文に数「' + c.num + '」が出てこない（文を直すか「属性から作り直す」）');
+      }
+    });
+    if (errors.length) return { errors: errors, warnings: warnings, solutions: [] };
+
+    var task = normalize(JSON.parse(JSON.stringify(t)));
+    var ids = task.cards.map(function (c) { return c.id; });
+    var solutions = permutations3(ids).filter(function (s) { return MSK.evaluate(task, s).allSatisfied; });
+    var marked = task.cards.filter(function (c) { return c.correct; }).map(function (c) { return c.id; });
+    var sameSet = function (s) { return s.slice().sort().join() === marked.slice().sort().join(); };
+    if (marked.length !== 3) {
+      errors.push('正解のカードに 3 枚だけ印を付ける（いまは ' + marked.length + ' 枚）');
+    } else if (!solutions.some(sameSet)) {
+      // どの並びでも正解にならない：いちばん多くの制約を満たす並びで、足りない制約を示す
+      var best = null;
+      permutations3(marked).forEach(function (s) {
+        var r = MSK.evaluate(task, s);
+        var k = MSK.FLAGS.filter(function (f) { return r.flags[f]; }).length;
+        if (!best || k > best.k) best = { k: k, r: r, s: s };
+      });
+      errors.push('正解の印を付けた 3 枚では、どの並びでも正解にならない');
+      MSK.FLAGS.forEach(function (f) { if (best.r.reasons[f]) errors.push('　' + f + '：' + best.r.reasons[f]); });
+    }
+    var others = solutions.filter(function (s) { return !sameSet(s); });
+    if (others.length) {
+      warnings.push('印を付けていないカードの組み合わせでも正解になる（例：' + others[0].join('・') + ' 番）。正解が 2 通りある課題になる');
+    }
+    if (solutions.length && marked.length === 3 && task.order && solutions.filter(sameSet).length === 6) {
+      warnings.push('並べる順序を問う課題なのに、どの順でも正解になる');
+    }
+    return { errors: errors, warnings: warnings, solutions: solutions };
+  }
+
+  return {
+    STORY_LABEL: STORY_LABEL, requirementText: requirementText, cardText: cardText, inferUnit: inferUnit,
+    newTask: newTask, normalize: normalize, check: check,
+  };
+})();
+</script>
+
+<script>
+'use strict';
+/*
+ * モンサクン 教員用ページ（オーサリングツール）。
+ *
+ *   課題をつくる … 課題セット（管理シートの「課題」「カード」）を読み込み、編集して、丸ごと保存する。
+ *                 カードの属性から文を作り、判定エンジンで「正解の 3 枚が 5 制約を満たすか」をその場で検査する。
+ *   ログを書き出す … 日ごとのログファイルを選んで 1 つの CSV にまとめてダウンロードする。
+ *
+ * 教員かどうかはサーバが CONFIG.TEACHERS で確かめる（このページの表示だけでは何も変えられない）。
+ */
+var $ = function (s, r) { return (r || document).querySelector(s); };
+var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+function el(tag, attrs, kids) {
+  var n = document.createElement(tag);
+  Object.keys(attrs || {}).forEach(function (k) {
+    var v = attrs[k];
+    if (k === 'class') n.className = v;
+    else if (k.indexOf('on') === 0) n.addEventListener(k.slice(2), v);
+    else if (k === 'value') n.value = v;
+    else if (k === 'checked' || k === 'selected' || k === 'disabled') n[k] = !!v;
+    else n.setAttribute(k, v);
+  });
+  [].concat(kids || []).forEach(function (c) {
+    if (c === null || c === undefined || c === false) return;
+    n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  });
+  return n;
+}
+function clone(x) { return JSON.parse(JSON.stringify(x)); }
+
+var KEY = 'monsakun:teacher-session';
+var T = { session: null, email: '', tasks: null, version: '', dirty: false, sel: -1 };
+
+// ---------------------------------------------------------------------------
+// ログイン
+// ---------------------------------------------------------------------------
+function boot() {
+  $$('#tabs button').forEach(function (b) { b.addEventListener('click', function () { showTab(b.dataset.tab); }); });
+  $('#logout').addEventListener('click', function () {
+    try { localStorage.removeItem(KEY); } catch (e) { /* 無視 */ }
+    location.reload();
+  });
+  $('#import').addEventListener('click', importDefaults);
+  $('#add').addEventListener('click', addTask);
+  $('#save').addEventListener('click', saveAll);
+  $('#reset').addEventListener('click', resetSet);
+  $('#reloadDays').addEventListener('click', loadDays);
+  $('#download').addEventListener('click', downloadCsv);
+  $('#allDays').addEventListener('change', function (e) { $$('#days input').forEach(function (c) { c.checked = e.target.checked; }); });
+  window.addEventListener('beforeunload', function (e) { if (T.dirty) { e.preventDefault(); e.returnValue = ''; } });
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) { /* 無視 */ }
+  if (!saved) return showLogin();
+  API.resume(saved).then(onLogin).catch(function () { showLogin(); });
+}
+
+function showLogin(msg) {
+  $('#login').hidden = false;
+  $('#loginmsg').textContent = msg || '';
+  if (MSK_CONFIG.mockLogin) {
+    $('#gbtn').innerHTML = '';
+    $('#gbtn').appendChild(el('button', { onclick: function () { onCredential({ credential: 'preview' }); } }, '（プレビュー）ログイン'));
+    return;
+  }
+  var tries = 0;
+  (function draw() {
+    if (!(window.google && google.accounts && google.accounts.id)) {
+      if (++tries > 100) { $('#loginmsg').textContent = 'Google のログイン部品を読み込めませんでした。'; return; }
+      return setTimeout(draw, 100);
+    }
+    google.accounts.id.initialize({ client_id: MSK_CONFIG.clientId, callback: onCredential, auto_select: false });
+    $('#gbtn').innerHTML = '';
+    google.accounts.id.renderButton($('#gbtn'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'ja' });
+  })();
+}
+
+function onCredential(resp) {
+  $('#loginmsg').textContent = 'ログインしています…';
+  API.login(resp.credential).then(onLogin).catch(function (err) { $('#loginmsg').textContent = err.message; });
+}
+
+function onLogin(info) {
+  if (!info.isTeacher) {
+    try { localStorage.removeItem(KEY); } catch (e) { /* 無視 */ }
+    return showLogin('このアカウント（' + info.email + '）は教員として登録されていません。');
+  }
+  try { localStorage.setItem(KEY, info.session); } catch (e) { /* 無視 */ }
+  T.session = info.session;
+  T.email = info.email;
+  $('#login').hidden = true;
+  $('#tabs').hidden = false;
+  $('#logout').hidden = false;
+  $('#who').textContent = info.email;
+  showTab('tasks');
+  loadTasks();
+}
+
+function showTab(name) {
+  $$('#tabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.tab === name); });
+  $('#tasks').hidden = name !== 'tasks';
+  $('#logs').hidden = name !== 'logs';
+  if (name === 'logs') loadDays();
+}
+
+function toast(msg) {
+  var t = $('#toast');
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(function () { t.hidden = true; }, 3500);
+}
+
+function apiError(err) {
+  if (err.code === 'auth') {
+    try { localStorage.removeItem(KEY); } catch (e) { /* 無視 */ }
+    $('#tasks').hidden = true; $('#logs').hidden = true;
+    return showLogin(err.message);
+  }
+  toast(err.message);
+}
+
+// ---------------------------------------------------------------------------
+// 課題セット
+// ---------------------------------------------------------------------------
+function loadTasks() {
+  $('#state').textContent = '読み込んでいます…';
+  API.tasksLoad(T.session).then(function (r) {
+    T.tasks = r.tasks;            // 無ければ null（児童には既定の 48 課題が出ている）
+    T.version = r.version || '';
+    T.dirty = false;
+    T.sel = -1;
+    (T.tasks || []).forEach(markAuto);
+    render();
+  }).catch(apiError);
+}
+
+/** 既定の 48 課題を取り込む。配信版には正解の印が無いので、判定エンジンで正解の 3 枚を求めて印を付ける。 */
+function importDefaults() {
+  if (T.tasks && T.tasks.length && !confirm('いま編集中の課題セットを、既定の 48 課題で置き換えます。よろしいですか？（保存するまでサーバには反映されません）')) return;
+  T.tasks = clone(MSK_TASKS.tasks).map(function (t) {
+    var ids = t.cards.map(function (c) { return c.id; });
+    var sol = null;
+    ids.forEach(function (a) { ids.forEach(function (b) { ids.forEach(function (c) {
+      if (!sol && a !== b && b !== c && a !== c && MSK.evaluate(t, [a, b, c]).allSatisfied) sol = [a, b, c];
+    }); }); });
+    t.cards.forEach(function (c) { c.correct = !!sol && sol.indexOf(c.id) >= 0; });
+    return t;
+  });
+  T.tasks.forEach(markAuto);
+  T.dirty = true;
+  T.sel = 0;
+  render();
+  toast('既定の 48 課題を取り込みました。「保存する」で児童の画面に反映されます。');
+}
+
+/** 自動で作った文かどうかを覚えておく（属性を変えたとき、自動の文なら作り直し、手で直した文は残す） */
+function markAuto(t) {
+  var q = MSK_TOOLS.requirementText(t);
+  t._reqAuto = t.requirement.display === q.display;
+  t.cards.forEach(function (c) {
+    MSK_TOOLS.inferUnit(c);
+    c._auto = !c.display || c.display === MSK_TOOLS.cardText(c).display;
+  });
+}
+
+function addTask() {
+  if (!T.tasks) T.tasks = [];
+  var lv = T.sel >= 0 ? T.tasks[T.sel].lv : 1;
+  var asg = 1 + T.tasks.filter(function (t) { return t.lv === lv; }).reduce(function (m, t) { return Math.max(m, t.asg); }, 0);
+  var t = MSK_TOOLS.newTask(lv, asg);
+  markAuto(t);
+  T.tasks.push(t);
+  sortTasks();
+  T.sel = T.tasks.indexOf(t);
+  T.dirty = true;
+  render();
+}
+
+function sortTasks() {
+  T.tasks.sort(function (a, b) { return (a.lv * 100 + Number(a.asg)) - (b.lv * 100 + Number(b.asg)); });
+}
+
+function stripForSave(t) {
+  var x = clone(t);
+  delete x._reqAuto;
+  x.cards.forEach(function (c) { delete c._auto; });
+  return MSK_TOOLS.normalize(x);
+}
+
+function saveAll() {
+  if (!T.tasks) return toast('保存する課題セットがありません。');
+  var bad = [];
+  T.tasks.forEach(function (t) {
+    var r = MSK_TOOLS.check(t);
+    if (r.errors.length) bad.push(t.lv + '-' + t.asg + '：' + r.errors[0]);
+  });
+  var keys = {};
+  T.tasks.forEach(function (t) {
+    var k = t.lv + '-' + t.asg;
+    if (keys[k]) bad.push(k + '：同じレベル・番号の課題が 2 つある');
+    keys[k] = 1;
+  });
+  if (bad.length) return toast('直してから保存してください：' + bad.slice(0, 3).join(' ／ ') + (bad.length > 3 ? ' ほか' : ''));
+  $('#save').disabled = true;
+  API.tasksSave(T.session, T.tasks.map(stripForSave), T.version).then(function (r) {
+    T.version = r.version;
+    T.dirty = false;
+    render();
+    toast('保存しました（' + r.count + ' 課題）。児童の画面は次にログインしたときから新しい課題になります。');
+  }).catch(apiError).then(function () { $('#save').disabled = false; });
+}
+
+function resetSet() {
+  if (!confirm('サーバの課題セットを消し、児童の画面を既定の 48 課題に戻します。よろしいですか？')) return;
+  API.tasksSave(T.session, [], T.version).then(function () {
+    toast('課題セットを消しました。児童の画面は既定の 48 課題に戻ります。');
+    loadTasks();
+  }).catch(apiError);
+}
+
+// ---------------------------------------------------------------------------
+// 描画：状態・一覧・編集
+// ---------------------------------------------------------------------------
+function render() {
+  renderState();
+  renderList();
+  renderEditor();
+}
+
+/** 上の帯（課題セットの状態）だけを描き直す。入力中に編集欄を作り直すと入力の焦点が外れるので分けてある */
+function renderState() {
+  var st = $('#state');
+  st.innerHTML = '';
+  if (!T.tasks) {
+    st.appendChild(el('span', {}, ['課題セットはまだありません（児童には ', el('b', {}, '既定の 48 課題'), ' が出ています）']));
+  } else {
+    st.appendChild(el('span', {}, ['課題セット：', el('b', {}, T.tasks.length + ' 課題'),
+      T.version ? '（保存した版 ' + T.version + '）' : '（未保存）']));
+    if (T.dirty) st.appendChild(el('span', { class: 'dirty' }, '保存していない変更があります'));
+  }
+  $('#reset').hidden = !T.version;
+}
+
+function statusOf(t) {
+  var r = MSK_TOOLS.check(t);
+  return r.errors.length ? 'ng' : r.warnings.length ? 'warn' : 'ok';
+}
+
+function renderList() {
+  var box = $('#list');
+  box.innerHTML = '';
+  if (!T.tasks || !T.tasks.length) {
+    box.appendChild(el('p', { class: 'note' }, '課題はまだありません。'));
+    return;
+  }
+  var lastLv = null;
+  T.tasks.forEach(function (t, i) {
+    if (t.lv !== lastLv) { box.appendChild(el('h4', {}, 'レベル ' + t.lv)); lastLv = t.lv; }
+    var s = statusOf(t);
+    box.appendChild(el('div', {
+      class: 'item' + (i === T.sel ? ' on' : ''), 'data-i': String(i),
+      onclick: function () { T.sel = i; render(); },
+    }, [
+      el('span', { class: 'no' }, t.lv + '-' + t.asg),
+      el('span', { class: 'sum' }, (t.tutorial ? '【例示】' : '') + MSK_TOOLS.STORY_LABEL[t.story].slice(0, 2) + '　'
+        + (t.requirement.mode === 'calc' ? t.requirement.a + t.requirement.op + t.requirement.b
+          : t.requirement.a + t.requirement.op + t.requirement.b + '=' + t.requirement.r)),
+      el('span', { class: 'mark-' + s, title: s === 'ok' ? '検査 OK' : s === 'warn' ? '注意あり' : '直す必要あり' },
+        s === 'ok' ? '✓' : s === 'warn' ? '!' : '✗'),
+    ]));
+  });
+}
+
+function changed(t, opts) {
+  opts = opts || {};
+  if (t._reqAuto) {
+    var q = MSK_TOOLS.requirementText(t);
+    t.requirement.text = q.text; t.requirement.display = q.display;
+  }
+  t.cards.forEach(function (c) {
+    if (c._auto) { var x = MSK_TOOLS.cardText(c); c.text = x.text; c.display = x.display; }
+  });
+  T.dirty = true;
+  if (opts.rebuild) renderEditor(); else { refreshCheck(t); refreshReq(t); }
+  renderList();
+  renderState();
+}
+
+function input(value, onInput, cls, attrs) {
+  return el('input', Object.assign({ class: cls || '', value: value === null || value === undefined ? '' : value,
+    oninput: function (e) { onInput(e.target.value); } }, attrs || {}));
+}
+
+function select(value, options, onChange) {
+  return el('select', { onchange: function (e) { onChange(e.target.value); } }, options.map(function (o) {
+    return el('option', { value: o[0], selected: o[0] === value }, o[1]);
+  }));
+}
+
+function renderEditor() {
+  var box = $('#editor');
+  box.innerHTML = '';
+  var t = T.tasks && T.tasks[T.sel];
+  if (!t) {
+    box.appendChild(el('p', { class: 'note' }, '左の一覧から課題を選ぶか、「＋ 新しい課題」で作ります。'));
+    return;
+  }
+  var q = t.requirement;
+  box.appendChild(el('h2', {}, '課題 ' + t.lv + '-' + t.asg));
+
+  box.appendChild(el('div', { class: 'row' }, [
+    el('label', {}, ['レベル', input(t.lv, function (v) { t.lv = Number(v) || 1; changed(t); }, 'n', { type: 'number', min: 1, max: 9 })]),
+    el('label', {}, ['番号', input(t.asg, function (v) { t.asg = Number(v) || 1; changed(t); }, 'n', { type: 'number', min: 1, max: 99 })]),
+    el('label', {}, ['お話の種類', select(t.story, [['combine', '合併（あわせて）'], ['increase', '増加（ふえると）'],
+      ['decrease', '減少（のこりは）'], ['compare', '比較（ちがいは）']], function (v) { t.story = v; changed(t); })]),
+    el('label', {}, [el('input', { type: 'checkbox', checked: t.tutorial, onchange: function (e) { t.tutorial = e.target.checked; changed(t); } }),
+      '例示課題']),
+  ]));
+  box.appendChild(el('p', { class: 'note' }, '増加・減少は「変化前 → 変化 → 変化後」の順を問う（関係文はまん中）。合併・比較は順を問わない。'));
+
+  box.appendChild(el('h3', {}, '作問条件'));
+  box.appendChild(el('div', { class: 'row' }, [
+    select(q.mode, [['relation', '関係式（例 4+3=?）'], ['calc', '計算式（例 4+3）']], function (v) {
+      q.mode = v; if (v === 'calc') { q.r = null; } else if (!q.r) { q.r = '?'; } changed(t, { rebuild: true });
+    }),
+    input(q.a, function (v) { q.a = v.trim(); changed(t); }, 'n'),
+    select(q.op, [['+', '+'], ['-', '−']], function (v) { q.op = v; changed(t); }),
+    input(q.b, function (v) { q.b = v.trim(); changed(t); }, 'n'),
+    q.mode === 'calc' ? null : el('span', {}, '='),
+    q.mode === 'calc' ? null : input(q.r, function (v) { q.r = v.trim(); changed(t); }, 'n'),
+    el('span', { class: 'note' }, '数字か ? を入れる'),
+  ]));
+  box.appendChild(el('div', { class: 'row' }, [
+    el('label', { style: 'flex:1;min-width:260px' }, ['表示する文',
+      el('textarea', { rows: 3, id: 'reqDisplay', oninput: function (e) {
+        q.display = e.target.value; q.text = e.target.value.replace(/\s/g, ''); t._reqAuto = false; T.dirty = true; refreshReq(t);
+      } }, q.display || '')]),
+    el('div', {}, [el('div', { class: 'note' }, '児童に見える枠'), el('div', { class: 'req-preview', id: 'reqPreview' }, q.display || '')]),
+    el('button', { onclick: function () { t._reqAuto = true; changed(t, { rebuild: true }); } }, '文を作り直す'),
+  ]));
+
+  box.appendChild(el('h3', {}, 'カード（' + t.cards.length + ' 枚）'));
+  var tb = el('tbody');
+  t.cards.forEach(function (c, i) { tb.appendChild(cardRow(t, c, i)); });
+  box.appendChild(el('table', { class: 'cards' }, [
+    el('thead', {}, el('tr', {}, ['番号', '正解', '種類', '属性（判定に使う）', '表示する文', ''].map(function (h) { return el('th', {}, h); }))),
+    tb,
+  ]));
+  box.appendChild(el('div', { class: 'row' }, [
+    el('button', { disabled: t.cards.length >= 8, onclick: function () {
+      var c = { kind: 'exist', obj: '', num: '', unit: '', pred: 'あります', correct: false, _auto: true };
+      t.cards.push(c); changed(t, { rebuild: true });
+    } }, '＋ カードを足す'),
+    el('span', { class: 'note' }, '正解のカード 3 枚に印を付ける（判定の検査に使う。児童には見えない）。カードは 3〜8 枚。'),
+  ]));
+
+  box.appendChild(el('div', { class: 'check', id: 'check' }));
+  box.appendChild(el('div', { class: 'foot' }, [
+    el('button', { onclick: function () {
+      var c = clone(t); c.asg = 1 + T.tasks.filter(function (x) { return x.lv === t.lv; }).reduce(function (m, x) { return Math.max(m, x.asg); }, 0);
+      T.tasks.push(c); sortTasks(); T.sel = T.tasks.indexOf(c); T.dirty = true; render();
+    } }, 'この課題を複製'),
+    el('button', { class: 'danger', onclick: function () {
+      if (!confirm('課題 ' + t.lv + '-' + t.asg + ' を一覧から消します（保存するまでサーバには反映されません）。')) return;
+      T.tasks.splice(T.sel, 1); T.sel = Math.min(T.sel, T.tasks.length - 1); T.dirty = true; render();
+    } }, 'この課題を消す'),
+  ]));
+  refreshCheck(t);
+}
+
+var KIND_OPTIONS = [['exist', '存在文'], ['combine', '関係文：合併'], ['increase', '関係文：増加'],
+  ['decrease', '関係文：減少'], ['compare', '関係文：比較']];
+
+function cardRow(t, c, i) {
+  var kindValue = c.kind === 'exist' ? 'exist' : c.rel;
+  var f = function (key, label, cls) {
+    return el('label', { title: label }, [el('span', { class: 'note' }, label),
+      input(c[key], function (v) { c[key] = v; changed(t); }, cls)]);
+  };
+  var attrs;
+  if (kindValue === 'exist') attrs = [f('obj', 'もの'), f('num', '数', 'n'), f('unit', '単位', 'u'), f('pred', 'ある様子')];
+  else if (kindValue === 'combine') {
+    if (!c.objs) c.objs = ['', ''];
+    attrs = [
+      el('label', {}, [el('span', { class: 'note' }, 'もの 1'), input(c.objs[0], function (v) { c.objs[0] = v; changed(t); })]),
+      el('label', {}, [el('span', { class: 'note' }, 'もの 2'), input(c.objs[1], function (v) { c.objs[1] = v; changed(t); })]),
+      f('num', '数', 'n'), f('unit', '単位', 'u'), f('pred', 'ある様子')];
+  } else if (kindValue === 'compare') {
+    attrs = [f('subj', 'くらべる方'), f('ref', 'くらべられる方'), f('num', '数', 'n'), f('unit', '単位', 'u'),
+      el('label', {}, [el('span', { class: 'note' }, '多い／少ない'),
+        select(c.dir || 'more', [['more', 'おおい'], ['less', 'すくない']], function (v) { c.dir = v; changed(t); })])];
+  } else {
+    attrs = [f('obj', 'もの'), f('num', '数', 'n'), f('unit', '単位', 'u'), f('verb', kindValue === 'increase' ? 'ふえ方' : 'へり方')];
+  }
+  return el('tr', {}, [
+    el('td', {}, String(i + 1)),
+    el('td', {}, el('input', { type: 'checkbox', checked: c.correct, title: '正解のカード',
+      onchange: function (e) { c.correct = e.target.checked; changed(t); } })),
+    el('td', {}, select(kindValue, KIND_OPTIONS, function (v) {
+      if (v === 'exist') { c.kind = 'exist'; c.obj = c.obj || (c.objs || [])[0] || c.subj || ''; c.pred = c.pred || 'あります'; }
+      else {
+        c.kind = 'rel'; c.rel = v;
+        if (v === 'combine') c.objs = c.objs || [c.obj || '', ''];
+        if (v === 'compare') { c.subj = c.subj || c.obj || ''; c.ref = c.ref || ''; c.dir = c.dir || 'more'; }
+        if (v === 'increase' || v === 'decrease') { c.obj = c.obj || (c.objs || [])[0] || ''; c.verb = v === 'increase' ? 'ふえました' : 'へりました'; }
+      }
+      c._auto = true;
+      MSK_TOOLS.normalize({ requirement: {}, cards: [c] });
+      changed(t, { rebuild: true });
+    })),
+    el('td', { class: 'attrs' }, attrs),
+    el('td', { class: 'txt' }, [
+      el('textarea', { rows: 2, 'data-card': String(i), oninput: function (e) {
+        c.display = e.target.value; c.text = e.target.value.replace(/\s/g, ''); c._auto = false; T.dirty = true; refreshCheck(t);
+      } }, c.display || ''),
+      c._auto ? null : el('button', { class: 'link', onclick: function () { c._auto = true; changed(t, { rebuild: true }); } }, '属性から作り直す'),
+    ]),
+    el('td', { class: 'ops' }, [
+      el('button', { title: '上へ', disabled: i === 0, onclick: function () { t.cards.splice(i - 1, 0, t.cards.splice(i, 1)[0]); changed(t, { rebuild: true }); } }, '↑'),
+      el('button', { title: '下へ', disabled: i === t.cards.length - 1, onclick: function () { t.cards.splice(i + 1, 0, t.cards.splice(i, 1)[0]); changed(t, { rebuild: true }); } }, '↓'),
+      el('button', { title: '消す', disabled: t.cards.length <= 3, onclick: function () { t.cards.splice(i, 1); changed(t, { rebuild: true }); } }, '×'),
+    ]),
+  ]);
+}
+
+/** 自動の文が変わったら、入力欄にも反映する（入力中の欄は触らない） */
+function refreshReq(t) {
+  var p = $('#reqPreview');
+  if (p) p.textContent = t.requirement.display || '';
+  var d = $('#reqDisplay');
+  if (d && document.activeElement !== d && d.value !== t.requirement.display) d.value = t.requirement.display || '';
+  t.cards.forEach(function (c, i) {
+    var a = document.querySelector('textarea[data-card="' + i + '"]');
+    if (a && document.activeElement !== a && a.value !== c.display) a.value = c.display || '';
+  });
+}
+
+function refreshCheck(t) {
+  var box = $('#check');
+  if (!box) return;
+  var r = MSK_TOOLS.check(t);
+  box.className = 'check ' + (r.errors.length ? 'ng' : 'ok');
+  box.innerHTML = '';
+  if (!r.errors.length) {
+    var orders = r.solutions.filter(function (s) {
+      var marked = t.cards.map(function (c, i) { return c.correct ? i + 1 : 0; }).filter(Boolean).sort().join();
+      return s.slice().sort().join() === marked;
+    });
+    box.appendChild(el('b', { class: 'mark-ok' }, '✓ 検査 OK'));
+    box.appendChild(el('span', {}, '　正解になる並び：' + orders.map(function (s) { return s.join('-'); }).join('、')));
+  } else {
+    box.appendChild(el('b', { class: 'mark-ng' }, '✗ このままでは児童が正解できません'));
+    box.appendChild(el('ul', { class: 'ng' }, r.errors.map(function (m) { return el('li', {}, m); })));
+  }
+  if (r.warnings.length) box.appendChild(el('ul', { class: 'warn' }, r.warnings.map(function (m) { return el('li', {}, m); })));
+}
+
+// ---------------------------------------------------------------------------
+// ログの書き出し
+// ---------------------------------------------------------------------------
+function loadDays() {
+  var tb = $('#days');
+  tb.innerHTML = '';
+  tb.appendChild(el('tr', {}, el('td', { colspan: 3, class: 'note' }, '読み込んでいます…')));
+  API.logsIndex(T.session).then(function (r) {
+    tb.innerHTML = '';
+    if (!r.days.length) tb.appendChild(el('tr', {}, el('td', { colspan: 3, class: 'note' }, 'まだログはありません。')));
+    r.days.forEach(function (d) {
+      var ymd = d.date;
+      tb.appendChild(el('tr', {}, [
+        el('td', {}, el('input', { type: 'checkbox', value: ymd })),
+        el('td', {}, ymd.slice(0, 4) + '/' + ymd.slice(4, 6) + '/' + ymd.slice(6, 8)),
+        el('td', { class: 'num' }, d.rows < 0 ? '開けません' : d.rows.toLocaleString() + ' 行'),
+      ]));
+    });
+  }).catch(apiError);
+}
+
+async function downloadCsv() {
+  var days = $$('#days input:checked').map(function (c) { return c.value; }).sort();
+  if (!days.length) return toast('日付を選んでください。');
+  var columns = $('input[name="cols"]:checked').value;
+  var withEmail = $('#withEmail').checked;
+  var parts = [], total = 0;
+  $('#download').disabled = true;
+  try {
+    for (var i = 0; i < days.length; i++) {
+      $('#logmsg').textContent = days[i] + ' を読み込んでいます…（' + (i + 1) + '/' + days.length + '）';
+      var r = await API.logsCsv(T.session, days[i], columns, withEmail);
+      if (!r.csv) continue;
+      var lines = r.csv.split('\r\n');
+      parts.push(parts.length ? lines.slice(1).join('\r\n') : r.csv);   // 見出しは最初の 1 回だけ
+      total += r.rows;
+    }
+    if (!total) { $('#logmsg').textContent = '選んだ日にログがありません。'; return; }
+    var name = 'monsakun_log_' + days[0] + (days.length > 1 ? '-' + days[days.length - 1] : '') + (columns === 'raw' ? '_raw32' : '') + '.csv';
+    var blob = new Blob(['﻿' + parts.join('')], { type: 'text/csv;charset=utf-8' });
+    var a = el('a', { href: URL.createObjectURL(blob), download: name });
+    document.body.appendChild(a); a.click(); a.remove();
+    $('#logmsg').textContent = '';
+    toast(name + ' をダウンロードしました（' + total.toLocaleString() + ' 行）。');
+  } catch (err) {
+    $('#logmsg').textContent = '';
+    apiError(err);
+  } finally {
+    $('#download').disabled = false;
+  }
+}
+
+boot();
+</script>
+
+</body>
+</html>
